@@ -1,25 +1,18 @@
 'use client'
 
-import { signIn, getProviders } from 'next-auth/react'
+import { signIn } from 'next-auth/react'
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Github, Mail, Loader2, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
-interface Provider {
-  id: string
-  name: string
-  type: string
-  signinUrl: string
-  callbackUrl: string
-}
+// Provider interface removed - only using credentials authentication
 
 function SignUpContent() {
-  const [providers, setProviders] = useState<Record<string, Provider> | null>(null)
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -32,13 +25,7 @@ function SignUpContent() {
   const error = searchParams.get('error')
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
-  useEffect(() => {
-    const fetchProviders = async () => {
-      const res = await getProviders()
-      setProviders(res)
-    }
-    fetchProviders()
-  }, [])
+  // OAuth providers removed - only using credentials authentication
 
   const handleSignUp = async (providerId: string) => {
     setIsLoading(providerId)
@@ -97,47 +84,16 @@ function SignUpContent() {
     }
   }
 
-  const getOAuthProviders = () => {
-    if (!providers) return []
-    return Object.values(providers).filter(provider => provider.id !== 'credentials')
-  }
-
-  const getProviderIcon = (providerId: string) => {
-    switch (providerId) {
-      case 'google':
-        return <Mail className="w-5 h-5" />
-      case 'github':
-        return <Github className="w-5 h-5" />
-      default:
-        return null
-    }
-  }
-
-  const getProviderColor = (providerId: string) => {
-    switch (providerId) {
-      case 'google':
-        return 'bg-red-600 hover:bg-red-700 text-white'
-      case 'github':
-        return 'bg-gray-900 hover:bg-gray-800 text-white'
-      default:
-        return 'bg-primary hover:bg-primary/90 text-primary-foreground'
-    }
-  }
+  // OAuth providers removed - only using credentials authentication
 
   const getErrorMessage = (error: string) => {
     switch (error) {
-      case 'OAuthSignin':
-        return 'Error occurred during OAuth sign-up. Please try again.'
-      case 'OAuthCallback':
-        return 'Error occurred during OAuth callback. Please try again.'
-      case 'OAuthCreateAccount':
-        return 'Could not create OAuth account. Please try again.'
+      // OAuth error cases removed
       case 'EmailCreateAccount':
         return 'Could not create account with that email address.'
       case 'Callback':
         return 'Error occurred during callback. Please try again.'
-      case 'OAuthAccountNotLinked':
-        return 'Email already exists with different provider. Please sign in instead.'
+      // OAuth account linking removed
       default:
         return 'An error occurred during sign-up. Please try again.'
     }
@@ -273,43 +229,7 @@ function SignUpContent() {
 
 
 
-          {/* Divider */}
-          {getOAuthProviders().length > 0 && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or sign up with
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* OAuth Providers */}
-          {getOAuthProviders().length > 0 && (
-            <div className="space-y-3">
-              {getOAuthProviders().map((provider) => (
-                <Button
-                  key={provider.name}
-                  variant="outline"
-                  className={`w-full h-12 ${getProviderColor(provider.id)} border-0 font-medium`}
-                  onClick={() => handleSignUp(provider.id)}
-                  disabled={isLoading === provider.id}
-                >
-                  {isLoading === provider.id ? (
-                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                  ) : (
-                    <>
-                      {getProviderIcon(provider.id)}
-                      <span className="ml-3">Sign up with {provider.name}</span>
-                    </>
-                  )}
-                </Button>
-              ))}
-            </div>
-          )}
+          {/* OAuth providers removed - only using email/password authentication */}
 
           {/* Sign In Link */}
           <div className="text-center">

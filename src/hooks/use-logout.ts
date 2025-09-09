@@ -107,16 +107,15 @@ export function useLogout(options: UseLogoutOptions = {}) {
       // Sign out with NextAuth
       await signOut({
         callbackUrl: redirectTo,
-        redirect: false // We'll handle redirect manually for better control
+        redirect: false // Handle redirect manually for better control
       })
 
       // Call success callback
       onSuccess?.()
 
-      // Manual redirect with a small delay to ensure cleanup is complete
+      // Force redirect after a short delay to ensure cleanup
       setTimeout(() => {
-        router.push(redirectTo)
-        router.refresh()
+        window.location.href = redirectTo
       }, 100)
 
     } catch (error) {

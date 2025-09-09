@@ -54,15 +54,34 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
+    console.log('🔍 Dashboard useEffect - Session status:', {
+      status,
+      hasSession: !!session,
+      userEmail: session?.user?.email,
+      timestamp: new Date().toISOString()
+    })
+
+    // TEMPORARILY REMOVE REDIRECT LOGIC TO DEBUG
+    // Wait for session loading to complete
+    if (status === 'loading') {
+      console.log('⏳ Dashboard: Session still loading, waiting...')
       return
     }
 
-    if (status === 'authenticated') {
+    // COMMENTED OUT REDIRECT TO DEBUG THE ISSUE
+    // // Only redirect if we're definitely unauthenticated (not loading)
+    // if (status === 'unauthenticated' && !session) {
+    //   console.log('🚫 Dashboard: User unauthenticated, redirecting to signin')
+    //   router.push('/auth/signin')
+    //   return
+    // }
+
+    // Fetch forms if authenticated
+    if (status === 'authenticated' && session) {
+      console.log('✅ Dashboard: User authenticated, fetching forms')
       fetchForms()
     }
-  }, [status, router])
+  }, [status, session, router])
 
   const fetchForms = async () => {
     try {

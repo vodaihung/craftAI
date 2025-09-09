@@ -1,10 +1,5 @@
 import NextAuth from 'next-auth'
-import GoogleProvider from 'next-auth/providers/google'
-import GitHubProvider from 'next-auth/providers/github'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { DrizzleAdapter } from '@auth/drizzle-adapter'
-import { db } from '@/lib/db'
-import { users, accounts, sessions, verificationTokens } from '@/lib/db/schema'
 import { getUserByEmail, createUserWithPassword } from '@/lib/db/queries'
 import bcrypt from 'bcryptjs'
 
@@ -83,63 +78,65 @@ const createProviders = () => {
     }),
   ]
 
-  // Add OAuth providers only if credentials are properly configured
-  if (process.env.GOOGLE_CLIENT_ID &&
-      process.env.GOOGLE_CLIENT_SECRET &&
-      process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' &&
-      process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret') {
-    providers.push(
-      GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      })
-    )
-  }
-
-  if (process.env.GITHUB_CLIENT_ID &&
-      process.env.GITHUB_CLIENT_SECRET &&
-      process.env.GITHUB_CLIENT_ID !== 'your-github-client-id' &&
-      process.env.GITHUB_CLIENT_SECRET !== 'your-github-client-secret') {
-    providers.push(
-      GitHubProvider({
-        clientId: process.env.GITHUB_CLIENT_ID,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      })
-    )
-  }
+  // Only using credentials provider - OAuth providers removed
 
   return providers
 }
 
 export const authOptions = {
-  // Remove adapter for credentials provider compatibility
-  // adapter: DrizzleAdapter(db, {
-  //   usersTable: users,
-  //   accountsTable: accounts,
-  //   sessionsTable: sessions,
-  //   verificationTokensTable: verificationTokens,
-  // }),
   providers: createProviders(),
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error',
   },
   callbacks: {
-    async session({ session, token }) {
-      if (session.user && token) {
+    async redirect({ url, baseUrl }: { url: string, baseUrl: string }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url
+      // Default redirect to dashboard after successful sign in
+      return `${baseUrl}/dashboard`
+    },
+    async session({ session, token }: { session: any, token: any }) {
+      if (token && session?.user) {
         session.user.id = token.sub || token.id || '1'
+        session.user.email = token.email || session.user.email || ''
+        session.user.name = token.name || session.user.name || ''
+        session.user.image = token.image || session.user.image || null
       }
       return session
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, trigger }) {
+      // On first sign in, user object will be available
       if (user) {
         token.id = user.id
+        token.sub = user.id
+        token.email = user.email
+        token.name = user.name
+        token.image = user.image
       }
       return token
     },
   },
   session: {
-    strategy: 'jwt', // Use JWT for credentials provider compatibility
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      },
+    },
   },
   debug: process.env.NODE_ENV === 'development',
   // Add error handling and logout cleanup

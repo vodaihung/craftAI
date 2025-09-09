@@ -9,11 +9,21 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
+        const isProtectedRoute = req.nextUrl.pathname.startsWith('/dashboard') ||
+                                req.nextUrl.pathname.startsWith('/create') ||
+                                req.nextUrl.pathname.startsWith('/api/forms') ||
+                                req.nextUrl.pathname.startsWith('/api/ai')
+
+        console.log('Middleware auth check:', {
+          path: req.nextUrl.pathname,
+          isProtected: isProtectedRoute,
+          hasToken: !!token,
+          tokenId: token?.id,
+          tokenEmail: token?.email
+        })
+
         // Protect dashboard and create routes
-        if (req.nextUrl.pathname.startsWith('/dashboard') ||
-            req.nextUrl.pathname.startsWith('/create') ||
-            req.nextUrl.pathname.startsWith('/api/forms') ||
-            req.nextUrl.pathname.startsWith('/api/ai')) {
+        if (isProtectedRoute) {
           return !!token
         }
 

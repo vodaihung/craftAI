@@ -15,12 +15,13 @@ import Link from 'next/link'
 import { useLogout, useTabCloseCleanup } from '@/hooks/use-logout'
 
 export function UserMenu() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const { logout, isLoading: isLoggingOut } = useLogout({
     redirectTo: '/',
     onSuccess: () => {
-      console.log('Successfully logged out')
+      // Force session update
+      update()
     },
     onError: (error) => {
       console.error('Logout failed:', error)
@@ -63,7 +64,7 @@ export function UserMenu() {
     )
   }
 
-  if (!session) {
+  if (!session || status === 'unauthenticated') {
     return (
       <div className="flex items-center space-x-2">
         <Link href="/auth/signin">
