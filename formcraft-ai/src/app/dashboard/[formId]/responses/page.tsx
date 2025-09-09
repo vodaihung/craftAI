@@ -20,7 +20,8 @@ import {
   Loader2,
   X,
   FileText,
-  ExternalLink
+  ExternalLink,
+  Image
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -391,10 +392,13 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
                           if (value) {
                             if (field.type === 'file' && Array.isArray(value)) {
                               // Handle file uploads
+                              const hasImages = value.some((file: any) => file.type && file.type.startsWith('image/'))
                               displayValue = value.length > 0
                                 ? `${value.length} file${value.length > 1 ? 's' : ''} uploaded`
                                 : 'No files'
-                              displayIcon = <FileText className="w-3 h-3 text-blue-500" />
+                              displayIcon = hasImages
+                                ? <Image className="w-3 h-3 text-green-500" />
+                                : <FileText className="w-3 h-3 text-blue-500" />
                             } else if (field.type === 'select' && Array.isArray(value)) {
                               // Handle multi-select
                               displayValue = value.join(', ')
@@ -508,25 +512,76 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
                           <div className="text-sm text-muted-foreground">
                             {field.type === 'file' && Array.isArray(value) ? (
                               value.length > 0 ? (
-                                <div className="space-y-2">
-                                  {value.map((file: any, index: number) => (
-                                    <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
-                                      <div className="flex items-center space-x-2">
-                                        <FileText className="w-4 h-4" />
-                                        <span>{file.originalName || file.filename}</span>
-                                        <Badge variant="outline" className="text-xs">
-                                          {(file.size / 1024).toFixed(1)} KB
-                                        </Badge>
+                                <div className="space-y-3">
+                                  {value.map((file: any, index: number) => {
+                                    const isImage = file.type && file.type.startsWith('image/')
+
+                                    return (
+                                      <div key={index} className="space-y-2">
+                                        {isImage ? (
+                                          // Image preview
+                                          <div className="space-y-2">
+                                            <div className="relative inline-block">
+                                              <img
+                                                src={file.url}
+                                                alt={file.originalName || file.filename}
+                                                className="max-w-full max-h-64 rounded-lg border shadow-sm object-contain"
+                                                onError={(e) => {
+                                                  // Fallback to file display if image fails to load
+                                                  e.currentTarget.style.display = 'none'
+                                                  const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                                                  if (fallback) fallback.style.display = 'flex'
+                                                }}
+                                              />
+                                              {/* Fallback file display (hidden by default) */}
+                                              <div className="hidden items-center justify-between p-2 bg-background rounded border">
+                                                <div className="flex items-center space-x-2">
+                                                  <FileText className="w-4 h-4" />
+                                                  <span>{file.originalName || file.filename}</span>
+                                                  <Badge variant="outline" className="text-xs">
+                                                    {(file.size / 1024).toFixed(1)} KB
+                                                  </Badge>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                                <span>{file.originalName || file.filename}</span>
+                                                <Badge variant="outline" className="text-xs">
+                                                  {(file.size / 1024).toFixed(1)} KB
+                                                </Badge>
+                                              </div>
+                                              {file.url && (
+                                                <Button variant="ghost" size="sm" asChild>
+                                                  <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                                    <ExternalLink className="w-4 h-4" />
+                                                  </a>
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          // Non-image file display
+                                          <div className="flex items-center justify-between p-2 bg-background rounded border">
+                                            <div className="flex items-center space-x-2">
+                                              <FileText className="w-4 h-4" />
+                                              <span>{file.originalName || file.filename}</span>
+                                              <Badge variant="outline" className="text-xs">
+                                                {(file.size / 1024).toFixed(1)} KB
+                                              </Badge>
+                                            </div>
+                                            {file.url && (
+                                              <Button variant="ghost" size="sm" asChild>
+                                                <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                                  <ExternalLink className="w-4 h-4" />
+                                                </a>
+                                              </Button>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
-                                      {file.url && (
-                                        <Button variant="ghost" size="sm" asChild>
-                                          <a href={file.url} target="_blank" rel="noopener noreferrer">
-                                            <ExternalLink className="w-4 h-4" />
-                                          </a>
-                                        </Button>
-                                      )}
-                                    </div>
-                                  ))}
+                                    )
+                                  })}
                                 </div>
                               ) : (
                                 <span className="text-muted-foreground">No files uploaded</span>

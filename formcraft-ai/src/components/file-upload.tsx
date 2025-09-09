@@ -186,6 +186,7 @@ export function FileUpload({
               <p className="text-sm text-muted-foreground">
                 Drag and drop files here, or{' '}
                 <Button
+                  type="button"
                   variant="link"
                   className="p-0 h-auto text-primary"
                   onClick={() => fileInputRef.current?.click()}
@@ -260,6 +261,7 @@ export function FileUpload({
                       Uploaded
                     </Badge>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => removeFile(file.id)}

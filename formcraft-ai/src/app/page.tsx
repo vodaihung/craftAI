@@ -14,11 +14,6 @@ export default function Home() {
             <h1 className="text-xl font-bold">FormCraft AI</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/dashboard">
-              <button className="text-sm font-medium hover:text-primary transition-colors">
-                Dashboard
-              </button>
-            </Link>
             <ThemeToggle />
           </div>
         </div>
@@ -81,9 +76,11 @@ export default function Home() {
                 Create Your First Form
               </button>
             </Link>
-            <button className="border border-border hover:bg-accent hover:text-accent-foreground px-8 py-3 rounded-lg font-medium transition-colors">
-              View Examples
-            </button>
+            <Link href="/dashboard">
+              <button className="border border-border hover:bg-accent hover:text-accent-foreground px-8 py-3 rounded-lg font-medium transition-colors">
+                Dashboard
+              </button>
+            </Link>
           </div>
         </div>
       </main>

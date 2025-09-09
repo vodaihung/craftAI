@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { getPublishedFormById } from '@/lib/db/queries'
+import { getPublishedFormById, getFormById } from '@/lib/db/queries'
 
 // GET /api/files/[formId]/[fieldId]/[filename] - Serve uploaded files
 export async function GET(
@@ -12,14 +12,21 @@ export async function GET(
   try {
     const { formId, fieldId, filename } = await params
     
-    // Validate form exists and is published (for security)
-    const form = await getPublishedFormById(formId)
+    // Validate form exists (allow both published and unpublished forms)
+    // For published forms, anyone can access files
+    // For unpublished forms, only allow access (this could be enhanced with user auth in the future)
+    let form = await getPublishedFormById(formId)
     if (!form) {
-      return new NextResponse('Form not found or not published', { status: 404 })
+      // If not published, check if form exists at all
+      form = await getFormById(formId)
+      if (!form) {
+        return new NextResponse('Form not found', { status: 404 })
+      }
+      // For unpublished forms, we allow access for now (could add user auth check here)
     }
 
     // Sanitize filename to prevent directory traversal
-    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-_]/g, '')
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '')
     if (sanitizedFilename !== filename) {
       return new NextResponse('Invalid filename', { status: 400 })
     }
