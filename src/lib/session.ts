@@ -37,17 +37,22 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
     ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
-  if (isProduction) {
-    console.log('Setting session cookie:', {
-      name: cookie.name,
-      secure: cookie.secure,
-      sameSite: cookie.sameSite,
-      domain: cookie.domain || 'not set',
-      maxAge: cookie.maxAge
-    })
-  }
+  // Enhanced logging for debugging cookie issues
+  console.log('Setting session cookie in response:', {
+    name: cookie.name,
+    secure: cookie.secure,
+    sameSite: cookie.sameSite,
+    domain: cookie.domain || 'not set',
+    maxAge: cookie.maxAge,
+    tokenLength: token.length,
+    isProduction
+  })
 
   response.cookies.set(cookie)
+
+  // Also set a backup header for debugging
+  response.headers.set('X-Auth-Cookie-Set', 'true')
+
   return response
 }
 

@@ -31,24 +31,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading')
 
-  // Check session on mount and periodically
+  // Check session on mount and periodically with enhanced error handling
   const checkSession = useCallback(async () => {
     try {
+      console.log('Checking session...')
       const response = await fetch('/api/auth/session', {
         method: 'GET',
         credentials: 'include',
+        cache: 'no-cache', // Ensure fresh session check
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       })
 
       if (response.ok) {
         const data = await response.json()
+        console.log('Session check response:', {
+          success: data.success,
+          hasUser: !!data.session?.user,
+          userEmail: data.session?.user?.email
+        })
+
         if (data.success && data.session?.user) {
           setUser(data.session.user)
           setStatus('authenticated')
+          console.log('Session authenticated for user:', data.session.user.email)
         } else {
           setUser(null)
           setStatus('unauthenticated')
+          console.log('Session check: user not authenticated')
         }
       } else {
+        console.log('Session check failed with status:', response.status)
         setUser(null)
         setStatus('unauthenticated')
       }
@@ -59,9 +74,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  // Login function
+  // Login function with enhanced logging and error handling
   const login = useCallback(async (email: string, password: string) => {
     try {
+      console.log('Attempting login for:', email)
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -72,12 +88,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
 
       const data = await response.json()
+      console.log('Login API response:', {
+        ok: response.ok,
+        status: response.status,
+        success: data.success,
+        hasUser: !!data.user,
+        hasCookieHeader: response.headers.has('set-cookie')
+      })
 
       if (response.ok && data.success) {
+        console.log('Login successful, updating auth state for user:', data.user.email)
         setUser(data.user)
         setStatus('authenticated')
         return { success: true }
       } else {
+        console.log('Login failed:', data.error)
         return { success: false, error: data.error || 'Login failed' }
       }
     } catch (error) {

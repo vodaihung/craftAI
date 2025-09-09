@@ -11,30 +11,44 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get session from request
+  // Get session from request with enhanced debugging
   const session = await getSessionFromRequest(request)
   const hasAuthToken = !!request.cookies.get('auth-token')?.value
+  const authTokenValue = request.cookies.get('auth-token')?.value
 
-  if (isProduction) {
-    console.log('Middleware check:', {
-      pathname,
-      hasAuthToken,
-      hasSession: !!session,
-      userAgent: request.headers.get('user-agent')?.substring(0, 50)
-    })
-  }
+  // Enhanced logging for debugging authentication issues
+  console.log('Middleware authentication check:', {
+    pathname,
+    hasAuthToken,
+    tokenLength: authTokenValue?.length || 0,
+    hasSession: !!session,
+    sessionUserId: session?.userId || 'none',
+    userAgent: request.headers.get('user-agent')?.substring(0, 50),
+    timestamp: new Date().toISOString(),
+    isProduction
+  })
 
   // Handle protected routes
   if (isProtectedRoute(pathname)) {
     if (!session) {
-      if (isProduction) {
-        console.log('Redirecting to signin - no session for protected route:', pathname)
-      }
+      console.log('Redirecting to signin - no session for protected route:', {
+        pathname,
+        hasAuthToken,
+        tokenLength: authTokenValue?.length || 0,
+        reason: hasAuthToken ? 'Token present but session invalid' : 'No auth token'
+      })
+
       // Redirect to signin with callback URL
       const signInUrl = new URL('/auth/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', request.url)
       return NextResponse.redirect(signInUrl)
     }
+
+    console.log('Allowing access to protected route:', {
+      pathname,
+      userId: session.userId,
+      userEmail: session.email
+    })
 
     // User is authenticated, allow access
     return NextResponse.next()

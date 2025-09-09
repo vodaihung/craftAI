@@ -129,19 +129,20 @@ export function getSessionCookie(token: string) {
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds
     path: '/',
-    // Add domain for production if needed
+    // Ensure cookie works across subdomains if needed
     ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
-  if (isProduction) {
-    console.log('Setting production cookie:', {
-      name: cookie.name,
-      secure: cookie.secure,
-      sameSite: cookie.sameSite,
-      domain: cookie.domain || 'not set',
-      maxAge: cookie.maxAge
-    })
-  }
+  // Enhanced logging for debugging
+  console.log('Setting session cookie:', {
+    name: cookie.name,
+    secure: cookie.secure,
+    sameSite: cookie.sameSite,
+    domain: cookie.domain || 'not set',
+    maxAge: cookie.maxAge,
+    isProduction,
+    tokenLength: token.length
+  })
 
   return cookie
 }

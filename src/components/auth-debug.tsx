@@ -32,12 +32,19 @@ export function AuthDebug() {
 
   const testSession = async () => {
     try {
-      const response = await fetch('/api/auth/session', {
-        credentials: 'include'
-      })
-      const data = await response.json()
-      console.log('Session test result:', data)
-      alert(`Session test: ${data.session?.status || 'unknown'}`)
+      const { getAuthDebugInfo } = await import('@/lib/auth-utils')
+      const debugInfo = await getAuthDebugInfo()
+      console.log('Comprehensive auth debug info:', debugInfo)
+
+      const summary = `
+Session Status: ${debugInfo.sessionVerification.success ? 'Valid' : 'Invalid'}
+Has Auth Token: ${debugInfo.hasAuthToken ? 'Yes' : 'No'}
+Cookie Support: ${debugInfo.cookieSupport ? 'Yes' : 'No'}
+User: ${debugInfo.sessionVerification.userEmail || 'None'}
+Error: ${debugInfo.sessionVerification.error || 'None'}
+      `.trim()
+
+      alert(summary)
     } catch (error) {
       console.error('Session test failed:', error)
       alert('Session test failed - check console')

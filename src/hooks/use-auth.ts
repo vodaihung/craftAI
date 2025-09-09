@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth, User } from '@/contexts/auth-context'
+import { verifySessionDetailed } from '@/lib/auth-utils'
 
 // Types to match NextAuth's useSession interface
 export interface Session {
@@ -77,42 +78,95 @@ export function useLogout() {
   return { logout: handleLogout }
 }
 
-// Hook for login with error handling
+// Session verification with detailed logging (using the new utility)
+async function verifySessionWithRetry(maxRetries: number = 3): Promise<boolean> {
+  console.log('Starting session verification with detailed logging...')
+  const result = await verifySessionDetailed(maxRetries)
+
+  console.log('Session verification result:', result)
+
+  if (!result.success) {
+    console.error('Session verification failed:', {
+      hasToken: result.hasToken,
+      sessionValid: result.sessionValid,
+      error: result.error,
+      attempts: result.attempts
+    })
+  }
+
+  return result.success
+}
+
+// Hook for login with error handling and session verification
 export function useLogin() {
-  const { login } = useAuth()
-  
+  const { login, refreshSession } = useAuth()
+
   const handleLogin = async (email: string, password: string) => {
     const result = await login(email, password)
-    
+
     if (result.success) {
-      // Redirect to dashboard or callback URL
-      const urlParams = new URLSearchParams(window.location.search)
-      const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
-      window.location.href = callbackUrl
+      console.log('Login API successful, verifying session...')
+
+      // Wait a moment for cookie to be set
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Verify session is working before redirect
+      const sessionVerified = await verifySessionWithRetry()
+
+      if (sessionVerified) {
+        // Refresh the auth context to ensure it's in sync
+        await refreshSession()
+
+        // Now safe to redirect
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
+        console.log('Session verified, redirecting to:', callbackUrl)
+        window.location.href = callbackUrl
+      } else {
+        console.error('Session verification failed after login')
+        return { success: false, error: 'Authentication verification failed. Please try again.' }
+      }
     }
-    
+
     return result
   }
-  
+
   return { login: handleLogin }
 }
 
-// Hook for signup with error handling
+// Hook for signup with error handling and session verification
 export function useSignup() {
-  const { signup } = useAuth()
-  
+  const { signup, refreshSession } = useAuth()
+
   const handleSignup = async (name: string, email: string, password: string, confirmPassword: string) => {
     const result = await signup(name, email, password, confirmPassword)
-    
+
     if (result.success) {
-      // Redirect to dashboard or callback URL
-      const urlParams = new URLSearchParams(window.location.search)
-      const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
-      window.location.href = callbackUrl
+      console.log('Signup API successful, verifying session...')
+
+      // Wait a moment for cookie to be set
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Verify session is working before redirect
+      const sessionVerified = await verifySessionWithRetry()
+
+      if (sessionVerified) {
+        // Refresh the auth context to ensure it's in sync
+        await refreshSession()
+
+        // Now safe to redirect
+        const urlParams = new URLSearchParams(window.location.search)
+        const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
+        console.log('Session verified, redirecting to:', callbackUrl)
+        window.location.href = callbackUrl
+      } else {
+        console.error('Session verification failed after signup')
+        return { success: false, error: 'Authentication verification failed. Please try again.' }
+      }
     }
-    
+
     return result
   }
-  
+
   return { signup: handleSignup }
 }
