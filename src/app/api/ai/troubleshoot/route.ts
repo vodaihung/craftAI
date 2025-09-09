@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       isPublished: form.isPublished,
       createdAt: form.createdAt,
       fieldCount: form.schema?.fields?.length || 0,
-      fieldTypes: form.schema?.fields?.map((f: any) => f.type) || [],
+      fieldTypes: form.schema?.fields?.map((f: { type: string }) => f.type) || [],
       totalResponses: analytics.totalResponses,
       responseRate: analytics.responseRate
     }

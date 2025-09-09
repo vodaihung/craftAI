@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 const errorMessages: Record<string, { title: string; description: string; suggestion: string }> = {
   Configuration: {
@@ -74,12 +75,12 @@ const errorMessages: Record<string, { title: string; description: string; sugges
   }
 }
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
-  const errorInfo = error && errorMessages[error] 
-    ? errorMessages[error] 
+  const errorInfo = error && errorMessages[error]
+    ? errorMessages[error]
     : errorMessages.Default
 
   return (
@@ -156,5 +157,26 @@ export default function AuthErrorPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-red-600 to-rose-600 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-red-800">
+              Loading...
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   )
 }

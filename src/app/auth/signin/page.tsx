@@ -1,7 +1,7 @@
 'use client'
 
 import { signIn, getProviders } from 'next-auth/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +18,7 @@ interface Provider {
   callbackUrl: string
 }
 
-export default function SignInPage() {
+function SignInContent() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(null)
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const [email, setEmail] = useState('')
@@ -288,5 +288,26 @@ export default function SignInPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-white animate-spin" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-gray-800">
+              Loading...
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <SignInContent />
+    </Suspense>
   )
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { db } from '@/lib/db'
 import { forms, formResponses } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'

@@ -6,7 +6,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { z } from 'zod'
 
 // Simple in-memory cache for forms data
-const formsCache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+const formsCache = new Map<string, { data: unknown; timestamp: number; ttl: number }>()
 
 function getCacheKey(userId: string): string {
   return `forms:${userId}`
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     if (cachedForms) {
       // Filter cached results by published status if specified
       const filteredForms = published !== null
-        ? cachedForms.filter((form: any) => form.isPublished === (published === 'true'))
+        ? cachedForms.filter((form: { isPublished: boolean }) => form.isPublished === (published === 'true'))
         : cachedForms
 
       console.log(`✅ Retrieved ${filteredForms.length} forms from cache`)
