@@ -1,271 +1,238 @@
-# FormCraft AI 🚀
+# 🚀 FormCraft AI
 
-**AI-Powered Form Builder** - Create beautiful, functional forms using natural language with the power of AI.
+**AI-Powered Form Builder with Natural Language Processing**
 
-![FormCraft AI](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38B2AC?style=for-the-badge&logo=tailwind-css)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-336791?style=for-the-badge&logo=postgresql)
+FormCraft AI is a modern, intelligent form builder that leverages artificial intelligence to create, analyze, and optimize forms through natural language interactions. Built with Next.js 15, TypeScript, and OpenAI's GPT models.
 
 ## ✨ Features
 
 ### 🤖 AI-Powered Form Generation
-- **Natural Language Processing**: Describe your form in plain English
-- **Intelligent Field Detection**: AI automatically suggests appropriate field types
-- **Smart Validation**: Auto-generated validation rules based on context
-- **Template System**: Pre-built templates for common use cases
+- **Natural Language Form Creation**: Describe your form in plain English and let AI generate it
+- **Intelligent Field Suggestions**: AI recommends optimal field types and configurations
+- **Conversational Form Building**: Iterative improvements through chat-like interactions
+- **Smart Form Analysis**: Get AI-powered insights on form performance and UX
 
-### 📝 Comprehensive Form Builder
-- **10+ Field Types**: Text, email, select, radio, checkbox, rating, date, file upload, and more
-- **File Upload Support**: Secure file handling with type and size validation
-- **Real-time Preview**: See your form as you build it
-- **Drag & Drop**: Intuitive file upload with progress tracking
+### 🎨 Modern Form Builder
+- **Drag & Drop Interface**: Intuitive visual form builder
+- **Real-time Preview**: See your forms as you build them
+- **Template Library**: Pre-built templates for common use cases
+- **Responsive Design**: Forms that work perfectly on all devices
 
-### 🔐 Complete Authentication System
-- **Multiple Auth Methods**: Email/password, Google OAuth, GitHub OAuth
-- **Secure Sessions**: JWT-based authentication with NextAuth.js
-- **User Management**: Complete user registration and login flows
+### 📊 Analytics & Insights
+- **Response Analytics**: Track form submissions and completion rates
+- **Performance Metrics**: Monitor form engagement and drop-off points
+- **AI-Powered Recommendations**: Get suggestions to improve form conversion
+- **Export Capabilities**: Download responses in various formats
 
-### 📊 Advanced Analytics & Management
-- **Real-time Analytics**: Response tracking, conversion rates, completion times
-- **Live Notifications**: Server-Sent Events for real-time updates
-- **Form Sharing**: Public URLs with customizable settings
-- **Response Management**: View, export, and analyze form submissions
+### 🔐 Secure Authentication
+- **Manual Authentication**: Secure login/signup with bcrypt password hashing
+- **JWT Sessions**: Stateless authentication with secure tokens
+- **Protected Routes**: Role-based access control
+- **Session Management**: Automatic token refresh and logout
 
-### 🛠️ Developer Experience
-- **Error Boundaries**: Comprehensive error handling and recovery
-- **Performance Monitoring**: Built-in performance tracking and optimization
-- **Type Safety**: Full TypeScript implementation
-- **Modern Stack**: Next.js 15, React 18, Tailwind CSS
+### 🗄️ Robust Data Management
+- **PostgreSQL Database**: Reliable data storage with Drizzle ORM
+- **Type-Safe Queries**: Full TypeScript support for database operations
+- **Real-time Updates**: Live form response notifications
+- **File Upload Support**: Secure file handling and storage
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Next.js 15** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS 4** - Utility-first styling
+- **Radix UI** - Accessible component primitives
+- **Lucide React** - Beautiful icons
+
+### Backend
+- **Next.js API Routes** - Serverless API endpoints
+- **Drizzle ORM** - Type-safe database toolkit
+- **PostgreSQL** - Robust relational database
+- **Zod** - Schema validation
+
+### AI Integration
+- **OpenAI GPT-4** - Advanced language model
+- **AI SDK** - Vercel's AI toolkit
+- **Structured Generation** - Type-safe AI responses
+
+### Authentication & Security
+- **JWT** - Secure token-based authentication
+- **bcryptjs** - Password hashing
+- **JOSE** - JWT operations
+- **HTTP-only Cookies** - Secure session storage
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- PostgreSQL database (we recommend [Neon](https://neon.tech))
+- Node.js 18+ 
+- PostgreSQL database
 - OpenAI API key
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/formcraft-ai.git
-   cd formcraft-ai
-   ```
+```bash
+git clone <repository-url>
+cd formcraft-ai
+```
 
 2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
+```bash
+cp .env.example .env.local
+```
 
-   Fill in your environment variables:
-   ```env
-   # Database
-   DATABASE_URL="postgresql://username:password@host:port/database"
+Edit `.env.local` with your configuration:
+```env
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/formcraft"
 
-   # Authentication
-   NEXTAUTH_SECRET="your-secret-key"
-   NEXTAUTH_URL="http://localhost:3000"
+# Authentication
+NEXTAUTH_SECRET="your-secret-key-here"
+JWT_SECRET="your-jwt-secret-here"
 
-   # OAuth Providers
-   GOOGLE_CLIENT_ID="your-google-client-id"
-   GOOGLE_CLIENT_SECRET="your-google-client-secret"
-   GITHUB_ID="your-github-client-id"
-   GITHUB_SECRET="your-github-client-secret"
+# OpenAI
+OPENAI_API_KEY="your-openai-api-key"
 
-   # OpenAI
-   OPENAI_API_KEY="your-openai-api-key"
-   ```
+# App
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
 
 4. **Set up the database**
-   ```bash
-   npm run db:push
-   ```
+```bash
+# Generate database schema
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Optional: Open Drizzle Studio
+npm run db:studio
+```
 
 5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 🏗️ Architecture
-
-### Tech Stack
-- **Frontend**: Next.js 15, React 18, TypeScript
-- **Styling**: Tailwind CSS, Radix UI components
-- **Backend**: Next.js API routes, Server Actions
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: NextAuth.js with multiple providers
-- **AI**: OpenAI GPT-4o-mini for form generation
-- **File Storage**: Local file system with secure serving
-- **Real-time**: Server-Sent Events (SSE)
-
-### Project Structure
-```
-formcraft-ai/
-├── src/
-│   ├── app/                 # Next.js app router pages
-│   ├── components/          # Reusable React components
-│   ├── lib/                 # Utilities and configurations
-│   │   ├── db/             # Database schema and queries
-│   │   ├── auth/           # Authentication configuration
-│   │   └── utils/          # Helper functions
-│   └── types/              # TypeScript type definitions
-├── public/                 # Static assets
-├── uploads/               # File upload storage
-└── docs/                  # Documentation
-```
-
-## 📖 Usage Guide
-
-### Creating Your First Form
-
-1. **Sign up/Login**: Create an account or sign in with Google/GitHub
-2. **Choose a Template**: Select from pre-built templates or start from scratch
-3. **Describe Your Form**: Use natural language to describe what you need
-4. **Review & Customize**: AI generates the form, you can modify as needed
-5. **Publish & Share**: Make your form public and share the URL
-
-### Form Types Supported
-- **Contact Forms**: Customer inquiries, support requests
-- **Surveys**: Feedback collection, market research
-- **Registration**: Event sign-ups, user registration
-- **Applications**: Job applications, membership forms
-- **Feedback**: Product reviews, service ratings
-
-### Field Types Available
-- **Text Input**: Single-line text, email, phone numbers
-- **Textarea**: Multi-line text for longer responses
-- **Select/Dropdown**: Single choice from options
-- **Radio Buttons**: Single choice with visible options
-- **Checkboxes**: Multiple choice selections
-- **Rating**: Star ratings (1-10 scale)
-- **Date Picker**: Date selection
-- **File Upload**: Document/image uploads with validation
-- **Number Input**: Numeric values with min/max validation
-
-## 🔧 Configuration
-
-### Database Setup
-The application uses PostgreSQL with Drizzle ORM. Schema is defined in `src/lib/db/schema.ts`.
-
-### Authentication Providers
-Configure OAuth providers in `src/app/api/auth/[...nextauth]/route.ts`:
-- Google OAuth
-- GitHub OAuth
-- Email/Password (credentials)
-
-### File Upload Configuration
-File uploads are handled securely with:
-- Type validation (MIME types)
-- Size limits (configurable per field)
-- Secure file serving
-- Automatic cleanup
-
-### AI Configuration
-OpenAI integration for form generation:
-- Model: GPT-4o-mini (cost-effective)
-- Structured output for reliable form schemas
-- Context-aware field suggestions
-
-## 🧪 Testing
-
-### Running Tests
 ```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run specific test file
-npm test -- --testPathPattern=forms
+npm run dev
 ```
 
-### Test Utilities
-The project includes comprehensive test utilities in `src/lib/test-utils.ts`:
-- Form schema validation
-- API endpoint testing
-- File upload testing
-- Performance measurement
+Visit [http://localhost:3000](http://localhost:3000) to see your application.
 
-### Manual Testing Checklist
-- [ ] User registration/login flows
-- [ ] Form creation with AI
-- [ ] All field types rendering correctly
-- [ ] File upload functionality
-- [ ] Form submission and response storage
-- [ ] Analytics and real-time updates
-- [ ] Error handling and recovery
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   │   ├── ai/           # AI-powered endpoints
+│   │   ├── auth/         # Authentication endpoints
+│   │   └── forms/        # Form management APIs
+│   ├── auth/             # Authentication pages
+│   ├── dashboard/        # User dashboard
+│   ├── forms/            # Public form pages
+│   └── create/           # Form builder
+├── components/            # React components
+│   ├── ui/               # Base UI components
+│   └── dashboard/        # Dashboard-specific components
+├── contexts/             # React contexts
+├── hooks/                # Custom React hooks
+└── lib/                  # Utilities and configurations
+    ├── db/               # Database schema and queries
+    └── auth.ts           # Authentication utilities
+```
+
+## 🔧 Available Scripts
+
+```bash
+# Development
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+
+# Database
+npm run db:generate  # Generate database schema
+npm run db:migrate   # Run database migrations
+npm run db:push      # Push schema changes
+npm run db:studio    # Open Drizzle Studio
+```
+
+## 🌟 Key Features Deep Dive
+
+### AI Form Generation
+The AI system can understand natural language prompts and generate complete form schemas:
+
+```typescript
+// Example API usage
+const response = await fetch('/api/ai/generate-form', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    prompt: "Create a job application form with personal details, experience, and file upload for resume"
+  })
+})
+```
+
+### Form Analytics
+Track form performance with detailed analytics:
+- Submission rates and completion metrics
+- Field-level drop-off analysis
+- AI-powered optimization suggestions
+- Real-time response monitoring
+
+### Secure Authentication
+Custom JWT-based authentication system:
+- Secure password hashing with bcrypt
+- HTTP-only cookie sessions
+- Automatic token refresh
+- Protected API routes
+
+## 🔒 Security Features
+
+- **Input Validation**: Zod schemas for all API endpoints
+- **SQL Injection Protection**: Parameterized queries with Drizzle ORM
+- **XSS Prevention**: Sanitized user inputs
+- **CSRF Protection**: SameSite cookie configuration
+- **Secure Headers**: Production-ready security headers
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
+### Environment Setup
+Ensure all environment variables are configured for production:
+- Set `NODE_ENV=production`
+- Use strong secrets for JWT tokens
+- Configure secure database connections
+- Set up proper CORS policies
 
-### Docker
+### Build and Deploy
 ```bash
-# Build the image
-docker build -t formcraft-ai .
-
-# Run the container
-docker run -p 3000:3000 formcraft-ai
+npm run build
+npm run start
 ```
-
-### Environment Variables for Production
-Ensure all environment variables are set:
-- Database connection string
-- NextAuth configuration
-- OAuth provider credentials
-- OpenAI API key
-- File upload directory permissions
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Workflow
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-### Code Style
-- TypeScript for type safety
-- ESLint + Prettier for code formatting
-- Conventional commits for commit messages
-- Component-driven development
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🆘 Support
 
-- [Next.js](https://nextjs.org) - The React framework
-- [Tailwind CSS](https://tailwindcss.com) - Utility-first CSS framework
-- [Radix UI](https://radix-ui.com) - Unstyled, accessible components
-- [OpenAI](https://openai.com) - AI-powered form generation
-- [Neon](https://neon.tech) - Serverless PostgreSQL
-- Custom JWT Authentication - Secure manual authentication system
-
-## 📞 Support
-
-- 📧 Email: support@formcraft-ai.com
-- 💬 Discord: [Join our community](https://discord.gg/formcraft-ai)
-- 📖 Documentation: [docs.formcraft-ai.com](https://docs.formcraft-ai.com)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/formcraft-ai/issues)
+For support and questions:
+- Create an issue on GitHub
+- Check the documentation
+- Review the security guide in `SECURITY_GUIDE.md`
 
 ---
 
-**Built with ❤️ by the FormCraft AI team**
+**Built with ❤️ using Next.js, TypeScript, and OpenAI**
