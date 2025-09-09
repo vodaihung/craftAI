@@ -22,11 +22,17 @@ export interface SessionPayload {
 
 // Configuration
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+  process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production'
 )
 const JWT_ALGORITHM = 'HS256'
 const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
 const COOKIE_NAME = 'auth-token'
+
+// Debug logging for production
+if (process.env.NODE_ENV === 'production') {
+  console.log('JWT_SECRET configured:', !!process.env.JWT_SECRET)
+  console.log('NEXTAUTH_SECRET configured:', !!process.env.NEXTAUTH_SECRET)
+}
 
 // Password utilities
 export async function hashPassword(password: string): Promise<string> {
@@ -66,9 +72,15 @@ export async function verifyJWT(token: string): Promise<SessionPayload | null> {
       return payload as unknown as SessionPayload
     }
 
+    console.error('JWT payload validation failed - invalid structure:', payload)
     return null
   } catch (error) {
-    console.error('JWT verification failed:', error)
+    console.error('JWT verification failed:', {
+      error: error instanceof Error ? error.message : error,
+      tokenLength: token?.length || 0,
+      hasSecret: !!JWT_SECRET,
+      nodeEnv: process.env.NODE_ENV
+    })
     return null
   }
 }
@@ -108,26 +120,44 @@ export async function getSessionFromRequest(request: NextRequest): Promise<Sessi
 
 // Cookie utilities
 export function getSessionCookie(token: string) {
-  return {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const cookie = {
     name: COOKIE_NAME,
     value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds
     path: '/',
+    // Add domain for production if needed
+    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
+
+  if (isProduction) {
+    console.log('Setting production cookie:', {
+      name: cookie.name,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      domain: cookie.domain || 'not set',
+      maxAge: cookie.maxAge
+    })
+  }
+
+  return cookie
 }
 
 export function getExpiredSessionCookie() {
+  const isProduction = process.env.NODE_ENV === 'production'
   return {
     name: COOKIE_NAME,
     value: '',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax' as const,
     maxAge: 0,
     path: '/',
+    // Add domain for production if needed
+    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 }
 

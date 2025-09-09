@@ -12,7 +12,16 @@ import { getUserById } from '@/lib/db/queries'
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
-    
+    const hasAuthToken = !!request.cookies.get('auth-token')?.value
+
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Session check:', {
+        hasAuthToken,
+        hasSession: !!session,
+        sessionUserId: session?.userId || 'none'
+      })
+    }
+
     if (!session) {
       return NextResponse.json({
         success: true,

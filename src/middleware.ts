@@ -4,6 +4,7 @@ import { isProtectedRoute, isAuthRoute, isPublicRoute } from '@/lib/session'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isProduction = process.env.NODE_ENV === 'production'
 
   // Allow public routes
   if (isPublicRoute(pathname)) {
@@ -12,10 +13,23 @@ export async function middleware(request: NextRequest) {
 
   // Get session from request
   const session = await getSessionFromRequest(request)
+  const hasAuthToken = !!request.cookies.get('auth-token')?.value
+
+  if (isProduction) {
+    console.log('Middleware check:', {
+      pathname,
+      hasAuthToken,
+      hasSession: !!session,
+      userAgent: request.headers.get('user-agent')?.substring(0, 50)
+    })
+  }
 
   // Handle protected routes
   if (isProtectedRoute(pathname)) {
     if (!session) {
+      if (isProduction) {
+        console.log('Redirecting to signin - no session for protected route:', pathname)
+      }
       // Redirect to signin with callback URL
       const signInUrl = new URL('/auth/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', request.url)
@@ -31,6 +45,9 @@ export async function middleware(request: NextRequest) {
     if (session) {
       // User is already authenticated, redirect to dashboard
       const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/dashboard'
+      if (isProduction) {
+        console.log('Redirecting authenticated user to dashboard:', callbackUrl)
+      }
       return NextResponse.redirect(new URL(callbackUrl, request.url))
     }
 

@@ -85,7 +85,12 @@ export async function POST(request: NextRequest) {
     // Set session cookie
     setSessionCookie(response, sessionToken)
 
-    console.log('User signed up successfully:', newUser.email)
+    console.log('User signed up successfully:', {
+      email: newUser.email,
+      userId: newUser.id,
+      tokenLength: sessionToken.length,
+      nodeEnv: process.env.NODE_ENV
+    })
     return response
 
   } catch (error) {

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from '@/components/session-provider';
 import ErrorBoundary from '@/components/error-boundary';
+import { AuthDebug } from '@/components/auth-debug';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
               storageKey="formcraft-theme"
             >
               {children}
+              <AuthDebug />
             </ThemeProvider>
           </SessionProvider>
         </ErrorBoundary>

@@ -24,16 +24,29 @@ export async function requireAuthFromRequest(request: NextRequest): Promise<Sess
 
 // Response utilities for setting/clearing session cookies
 export function setSessionCookie(response: NextResponse, token: string): NextResponse {
+  const isProduction = process.env.NODE_ENV === 'production'
   const cookie = {
     name: 'auth-token',
     value: token,
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax' as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
     path: '/',
+    // Add domain for production if needed
+    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
-  
+
+  if (isProduction) {
+    console.log('Setting session cookie:', {
+      name: cookie.name,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      domain: cookie.domain || 'not set',
+      maxAge: cookie.maxAge
+    })
+  }
+
   response.cookies.set(cookie)
   return response
 }
