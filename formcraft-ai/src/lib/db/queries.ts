@@ -1,5 +1,47 @@
 import { eq, desc, count } from 'drizzle-orm'
-import { db, users, forms, formResponses, type User, type NewUser, type Form, type FormResponse, type NewForm, type NewFormResponse } from './index'
+import { db, users, forms, formResponses, checkDbHealth, type User, type NewUser, type Form, type FormResponse, type NewForm, type NewFormResponse } from './index'
+
+// Simple in-memory cache for frequently accessed data
+const cache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+
+function getCacheKey(operation: string, params: any[]): string {
+  return `${operation}:${JSON.stringify(params)}`
+}
+
+function getFromCache<T>(key: string): T | null {
+  const cached = cache.get(key)
+  if (!cached) return null
+
+  if (Date.now() - cached.timestamp > cached.ttl) {
+    cache.delete(key)
+    return null
+  }
+
+  return cached.data as T
+}
+
+function setCache<T>(key: string, data: T, ttlMs: number = 60000): void {
+  // Limit cache size to prevent memory leaks
+  if (cache.size > 100) {
+    const oldestKey = cache.keys().next().value
+    cache.delete(oldestKey)
+  }
+
+  cache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl: ttlMs
+  })
+}
+
+// Database operation wrapper with health check
+async function withHealthCheck<T>(operation: () => Promise<T>): Promise<T> {
+  const isHealthy = await checkDbHealth()
+  if (!isHealthy) {
+    throw new Error('Database is not healthy')
+  }
+  return operation()
+}
 
 // User queries
 export async function createUser(userData: NewUser): Promise<User> {
@@ -22,13 +64,33 @@ export async function createUserWithPassword(userData: {
 }
 
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
-  return user || null
+  const cacheKey = getCacheKey('getUserByEmail', [email])
+  const cached = getFromCache<User | null>(cacheKey)
+  if (cached !== null) return cached
+
+  const result = await withHealthCheck(async () => {
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    return user || null
+  })
+
+  // Cache user data for 5 minutes
+  setCache(cacheKey, result, 300000)
+  return result
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1)
-  return user || null
+  const cacheKey = getCacheKey('getUserById', [id])
+  const cached = getFromCache<User | null>(cacheKey)
+  if (cached !== null) return cached
+
+  const result = await withHealthCheck(async () => {
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1)
+    return user || null
+  })
+
+  // Cache user data for 5 minutes
+  setCache(cacheKey, result, 300000)
+  return result
 }
 
 // Form queries
@@ -38,8 +100,18 @@ export async function createForm(formData: NewForm): Promise<Form> {
 }
 
 export async function getFormById(id: string): Promise<Form | null> {
-  const [form] = await db.select().from(forms).where(eq(forms.id, id)).limit(1)
-  return form || null
+  const cacheKey = getCacheKey('getFormById', [id])
+  const cached = getFromCache<Form | null>(cacheKey)
+  if (cached !== null) return cached
+
+  const result = await withHealthCheck(async () => {
+    const [form] = await db.select().from(forms).where(eq(forms.id, id)).limit(1)
+    return form || null
+  })
+
+  // Cache form data for 2 minutes (forms change more frequently)
+  setCache(cacheKey, result, 120000)
+  return result
 }
 
 export async function getAllForms(): Promise<Form[]> {

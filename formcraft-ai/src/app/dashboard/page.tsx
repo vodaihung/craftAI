@@ -6,12 +6,16 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { TroubleshootChat } from '@/components/troubleshoot-chat'
-import { SubscriptionManager } from '@/components/subscription-manager'
-import { ShareFormModal } from '@/components/share-form-modal'
-import { RealTimeNotifications } from '@/components/real-time-notifications'
 import { DashboardLoading } from '@/components/loading'
+import { UserMenu } from '@/components/user-menu'
 import ErrorBoundary from '@/components/error-boundary'
+import { lazy, Suspense } from 'react'
+
+// Lazy load heavy components to improve initial page load
+const TroubleshootChat = lazy(() => import('@/components/troubleshoot-chat').then(m => ({ default: m.TroubleshootChat })))
+const SubscriptionManager = lazy(() => import('@/components/subscription-manager').then(m => ({ default: m.SubscriptionManager })))
+const ShareFormModal = lazy(() => import('@/components/share-form-modal').then(m => ({ default: m.ShareFormModal })))
+const RealTimeNotifications = lazy(() => import('@/components/real-time-notifications').then(m => ({ default: m.RealTimeNotifications })))
 import {
   Plus,
   Eye,
@@ -215,6 +219,8 @@ export default function DashboardPage() {
                   Create New Form
                 </Button>
               </Link>
+
+              <UserMenu />
             </div>
           </div>
         </div>
@@ -334,10 +340,12 @@ export default function DashboardPage() {
                       <div className="flex items-center space-x-2">
                         {form.isPublished && (
                           <>
-                            <RealTimeNotifications
-                              formId={form.id}
-                              onNewResponse={fetchForms}
-                            />
+                            <Suspense fallback={<div className="w-8 h-8 animate-pulse bg-muted rounded" />}>
+                              <RealTimeNotifications
+                                formId={form.id}
+                                onNewResponse={fetchForms}
+                              />
+                            </Suspense>
                             <Button variant="outline" size="sm" asChild>
                               <Link href={`/forms/${form.id}`}>
                                 <Eye className="w-4 h-4 mr-1" />
@@ -380,17 +388,19 @@ export default function DashboardPage() {
                           {form.isPublished ? 'Unpublish' : 'Publish'}
                         </Button>
 
-                        <ShareFormModal
-                          formId={form.id}
-                          formName={form.name}
-                          isPublished={form.isPublished}
-                          onPublishToggle={() => handleTogglePublish(form.id, form.isPublished)}
-                        >
-                          <Button variant="outline" size="sm">
-                            <Share className="w-4 h-4 mr-1" />
-                            Share
-                          </Button>
-                        </ShareFormModal>
+                        <Suspense fallback={<Button variant="outline" size="sm" disabled><Share className="w-4 h-4 mr-1" />Share</Button>}>
+                          <ShareFormModal
+                            formId={form.id}
+                            formName={form.name}
+                            isPublished={form.isPublished}
+                            onPublishToggle={() => handleTogglePublish(form.id, form.isPublished)}
+                          >
+                            <Button variant="outline" size="sm">
+                              <Share className="w-4 h-4 mr-1" />
+                              Share
+                            </Button>
+                          </ShareFormModal>
+                        </Suspense>
 
                         <Link href={`/dashboard/${form.id}/analytics`}>
                           <Button variant="outline" size="sm">
@@ -433,15 +443,17 @@ export default function DashboardPage() {
       {troubleshootFormId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-background rounded-lg shadow-lg w-full max-w-4xl h-[80vh] flex flex-col">
-            <TroubleshootChat
-              formId={troubleshootFormId}
-              formName={troubleshootFormName}
-              onClose={() => {
-                setTroubleshootFormId(null)
-                setTroubleshootFormName('')
-              }}
-              className="flex-1"
-            />
+            <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+              <TroubleshootChat
+                formId={troubleshootFormId}
+                formName={troubleshootFormName}
+                onClose={() => {
+                  setTroubleshootFormId(null)
+                  setTroubleshootFormName('')
+                }}
+                className="flex-1"
+              />
+            </Suspense>
           </div>
         </div>
       )}
@@ -462,16 +474,18 @@ export default function DashboardPage() {
                 </Button>
               </div>
 
-              <SubscriptionManager
-                currentTier={currentTier}
-                formsCount={forms.length}
-                responsesCount={forms.reduce((sum, form) => sum + (form.responseCount || 0), 0)}
-                onUpgrade={(tierId) => {
-                  setCurrentTier(tierId)
-                  setShowSubscriptionManager(false)
-                }}
-                onClose={() => setShowSubscriptionManager(false)}
-              />
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+                <SubscriptionManager
+                  currentTier={currentTier}
+                  formsCount={forms.length}
+                  responsesCount={forms.reduce((sum, form) => sum + (form.responseCount || 0), 0)}
+                  onUpgrade={(tierId) => {
+                    setCurrentTier(tierId)
+                    setShowSubscriptionManager(false)
+                  }}
+                  onClose={() => setShowSubscriptionManager(false)}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

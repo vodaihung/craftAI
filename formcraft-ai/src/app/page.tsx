@@ -1,4 +1,5 @@
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserMenu } from "@/components/user-menu";
 import Link from "next/link";
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
             <h1 className="text-xl font-bold">FormCraft AI</h1>
           </div>
           <div className="flex items-center space-x-4">
+            <UserMenu />
             <ThemeToggle />
           </div>
         </div>
@@ -91,6 +93,7 @@ export default function Home() {
           <p>&copy; 2024 FormCraft AI. Built with Next.js 15 and Tailwind CSS.</p>
         </div>
       </footer>
+
     </div>
   );
 }

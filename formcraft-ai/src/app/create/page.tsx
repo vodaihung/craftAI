@@ -7,6 +7,7 @@ import { ChatInterface } from '@/components/chat-interface'
 import { FormPreview } from '@/components/form-preview'
 import { TemplateSelector } from '@/components/template-selector'
 import { ChatErrorBoundary, FormErrorBoundary } from '@/components/error-boundary'
+import { UserMenu } from '@/components/user-menu'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Save, Share } from 'lucide-react'
@@ -194,6 +195,8 @@ export default function CreateFormPage() {
                 <Save className="w-4 h-4 mr-2" />
                 {isSaving ? 'Saving...' : 'Save Form'}
               </Button>
+
+              <UserMenu />
             </div>
           </div>
         </div>

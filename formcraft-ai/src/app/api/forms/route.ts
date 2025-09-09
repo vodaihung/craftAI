@@ -5,6 +5,44 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { z } from 'zod'
 
+// Simple in-memory cache for forms data
+const formsCache = new Map<string, { data: any; timestamp: number; ttl: number }>()
+
+function getCacheKey(userId: string): string {
+  return `forms:${userId}`
+}
+
+function getFromCache<T>(key: string): T | null {
+  const cached = formsCache.get(key)
+  if (!cached) return null
+
+  if (Date.now() - cached.timestamp > cached.ttl) {
+    formsCache.delete(key)
+    return null
+  }
+
+  return cached.data as T
+}
+
+function setCache<T>(key: string, data: T, ttlMs: number = 120000): void {
+  // Limit cache size to prevent memory leaks
+  if (formsCache.size > 50) {
+    const oldestKey = formsCache.keys().next().value
+    formsCache.delete(oldestKey)
+  }
+
+  formsCache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl: ttlMs
+  })
+}
+
+function invalidateCache(userId: string): void {
+  const key = getCacheKey(userId)
+  formsCache.delete(key)
+}
+
 // Request schema for creating forms
 const CreateFormRequestSchema = z.object({
   name: z.string().min(1, 'Form name is required'),
@@ -29,14 +67,35 @@ export async function GET(request: NextRequest) {
 
     console.log('📋 Fetching forms for user:', session.user.id)
 
+    // Check cache first
+    const cacheKey = getCacheKey(session.user.id)
+    const cachedForms = getFromCache(cacheKey)
+
+    if (cachedForms) {
+      // Filter cached results by published status if specified
+      const filteredForms = published !== null
+        ? cachedForms.filter((form: any) => form.isPublished === (published === 'true'))
+        : cachedForms
+
+      console.log(`✅ Retrieved ${filteredForms.length} forms from cache`)
+      return NextResponse.json({
+        success: true,
+        forms: filteredForms,
+        total: filteredForms.length
+      })
+    }
+
     const forms = await getFormsByUserId(session.user.id)
+
+    // Cache the results for 2 minutes
+    setCache(cacheKey, forms, 120000)
 
     // Filter by published status if specified
     const filteredForms = published !== null
       ? forms.filter(form => form.isPublished === (published === 'true'))
       : forms
 
-    console.log(`✅ Retrieved ${filteredForms.length} forms`)
+    console.log(`✅ Retrieved ${filteredForms.length} forms from database`)
 
     return NextResponse.json({
       success: true,
@@ -80,7 +139,10 @@ export async function POST(request: NextRequest) {
       schema: validatedData.schema,
       isPublished: validatedData.isPublished
     })
-    
+
+    // Invalidate cache when new form is created
+    invalidateCache(session.user.id)
+
     console.log('✅ Form created successfully:', newForm.id)
     
     return NextResponse.json({
