@@ -1,7 +1,6 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
-import { useEffect, useState, Suspense } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,11 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useLogin } from '@/hooks/use-auth'
 
 // Provider interface removed - only using credentials authentication
 
 function SignInContent() {
-  const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -21,48 +21,31 @@ function SignInContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-
-  // OAuth providers removed - only using credentials authentication
-
-  const handleSignIn = async (providerId: string) => {
-    setIsLoading(providerId)
-    try {
-      await signIn(providerId, { callbackUrl })
-    } catch (error) {
-      console.error('Sign in error:', error)
-      setIsLoading(null)
-    }
-  }
+  const { login } = useLogin()
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading('credentials')
+    setIsLoading(true)
     setAuthError('')
 
     if (!email || !password) {
       setAuthError('Please fill in all fields')
-      setIsLoading(null)
+      setIsLoading(false)
       return
     }
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        action: 'signin',
-        callbackUrl,
-        redirect: true, // Let NextAuth handle the redirect
-      })
+      const result = await login(email, password)
 
-      // This code should not execute if redirect: true works properly
-      if (result?.error) {
-        setAuthError(result.error)
-        setIsLoading(null)
+      if (!result.success) {
+        setAuthError(result.error || 'Login failed')
+        setIsLoading(false)
       }
+      // If successful, the useLogin hook will handle the redirect
     } catch (error) {
-      console.error('Credentials sign in error:', error)
+      console.error('Login error:', error)
       setAuthError('An unexpected error occurred')
-      setIsLoading(null)
+      setIsLoading(false)
     }
   }
 
@@ -138,7 +121,7 @@ function SignInContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading === 'credentials'}
+                disabled={isLoading}
               />
             </div>
 
@@ -152,14 +135,14 @@ function SignInContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -169,9 +152,9 @@ function SignInContent() {
             <Button
               type="submit"
               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-              disabled={isLoading === 'credentials'}
+              disabled={isLoading}
             >
-              {isLoading === 'credentials' ? (
+              {isLoading ? (
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               ) : null}
               Sign In

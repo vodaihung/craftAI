@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createForm, getAllForms, getFormsByUserId } from '@/lib/db/queries'
 import { insertFormSchema, FormSchemaSchema } from '@/lib/db/schema'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAuth } from '@/lib/session'
 import { z } from 'zod'
 
 // Simple in-memory cache for forms data
@@ -28,7 +27,7 @@ function setCache<T>(key: string, data: T, ttlMs: number = 120000): void {
   // Limit cache size to prevent memory leaks
   if (formsCache.size > 50) {
     const oldestKey = formsCache.keys().next().value
-    formsCache.delete(oldestKey)
+    if (oldestKey) formsCache.delete(oldestKey)
   }
 
   formsCache.set(key, {
@@ -53,39 +52,33 @@ const CreateFormRequestSchema = z.object({
 // GET /api/forms - Get user's forms
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const userId = session.userId
 
     const { searchParams } = new URL(request.url)
     const published = searchParams.get('published')
 
-    console.log('📋 Fetching forms for user:', session.user.id)
+    console.log('📋 Fetching forms for user:', userId)
 
     // Check cache first
-    const cacheKey = getCacheKey(session.user.id)
+    const cacheKey = getCacheKey(userId)
     const cachedForms = getFromCache(cacheKey)
 
     if (cachedForms) {
       // Filter cached results by published status if specified
       const filteredForms = published !== null
-        ? cachedForms.filter((form: { isPublished: boolean }) => form.isPublished === (published === 'true'))
+        ? (cachedForms as any[]).filter((form: { isPublished: boolean }) => form.isPublished === (published === 'true'))
         : cachedForms
 
-      console.log(`✅ Retrieved ${filteredForms.length} forms from cache`)
+      console.log(`✅ Retrieved ${(filteredForms as any[]).length} forms from cache`)
       return NextResponse.json({
         success: true,
         forms: filteredForms,
-        total: filteredForms.length
+        total: (filteredForms as any[]).length
       })
     }
 
-    const forms = await getFormsByUserId(session.user.id)
+    const forms = await getFormsByUserId(userId)
 
     // Cache the results for 2 minutes
     setCache(cacheKey, forms, 120000)
@@ -106,6 +99,14 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('❌ Failed to fetch forms:', error)
 
+    // Handle authentication errors
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication required'
+      }, { status: 401 })
+    }
+
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch forms',
@@ -117,31 +118,25 @@ export async function GET(request: NextRequest) {
 // POST /api/forms - Create a new form
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const userId = session.userId
 
     const body = await request.json()
-    console.log('📝 Creating new form for user:', session.user.id)
+    console.log('📝 Creating new form for user:', userId)
 
     // Validate request body
     const validatedData = CreateFormRequestSchema.parse(body)
 
     // Create form in database
     const newForm = await createForm({
-      userId: session.user.id,
+      userId: userId,
       name: validatedData.name,
       schema: validatedData.schema,
       isPublished: validatedData.isPublished
     })
 
     // Invalidate cache when new form is created
-    invalidateCache(session.user.id)
+    invalidateCache(userId)
 
     console.log('✅ Form created successfully:', newForm.id)
     
@@ -153,15 +148,23 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('❌ Failed to create form:', error)
-    
+
+    // Handle authentication errors
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication required'
+      }, { status: 401 })
+    }
+
     if (error instanceof z.ZodError) {
       return NextResponse.json({
         success: false,
         error: 'Invalid form data',
-        details: error.errors
+        details: error.issues
       }, { status: 400 })
     }
-    
+
     return NextResponse.json({
       success: false,
       error: 'Failed to create form',

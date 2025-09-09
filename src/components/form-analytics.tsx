@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -48,11 +48,7 @@ export function FormAnalytics({ formId, formName }: FormAnalyticsProps) {
   const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [formId, timeRange])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
@@ -99,7 +95,11 @@ export function FormAnalytics({ formId, formName }: FormAnalyticsProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formId, timeRange])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
 
   const generateMockDailyData = () => {
     const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90

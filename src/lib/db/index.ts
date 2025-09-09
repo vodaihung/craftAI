@@ -9,11 +9,11 @@ if (!process.env.DATABASE_URL) {
 // Configure connection with optimized settings
 const sql = neon(process.env.DATABASE_URL, {
   // Optimize for performance
-  fetchConnectionCache: true,
+  // fetchConnectionCache: true, // Removed as it's not a valid option
   // Reduce timeout for faster failures
-  connectionTimeoutMillis: 5000,
+  // connectionTimeoutMillis: 5000, // Not a valid option for Drizzle
   // Enable connection pooling
-  poolSize: 10,
+  // poolSize: 10, // Not a valid option for Drizzle
   // Optimize for serverless
   idleTimeoutMillis: 30000,
 })

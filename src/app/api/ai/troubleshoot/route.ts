@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { openai } from '@ai-sdk/openai'
 import { generateObject } from 'ai'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAuth } from '@/lib/session'
 import { getFormById, getFormAnalytics } from '@/lib/db/queries'
 import { z } from 'zod'
 
@@ -30,14 +29,8 @@ const TroubleshootResponseSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const userId = session.userId
 
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
@@ -63,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user owns this form
-    if (form.userId !== session.user.id) {
+    if (form.userId !== session.userId) {
       return NextResponse.json({
         success: false,
         error: 'Access denied'
@@ -77,8 +70,8 @@ export async function POST(request: NextRequest) {
       name: form.name,
       isPublished: form.isPublished,
       createdAt: form.createdAt,
-      fieldCount: form.schema?.fields?.length || 0,
-      fieldTypes: form.schema?.fields?.map((f: { type: string }) => f.type) || [],
+      fieldCount: (form.schema as any)?.fields?.length || 0,
+      fieldTypes: (form.schema as any)?.fields?.map((f: { type: string }) => f.type) || [],
       totalResponses: analytics.totalResponses,
       responseRate: analytics.responseRate
     }
@@ -137,7 +130,7 @@ Always provide concrete, implementable advice based on form optimization best pr
       return NextResponse.json({
         success: false,
         error: 'Invalid request data',
-        details: error.errors
+        details: error.issues
       }, { status: 400 })
     }
 

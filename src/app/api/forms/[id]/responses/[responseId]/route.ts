@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAuth } from '@/lib/session'
 import { db } from '@/lib/db'
 import { forms, formResponses } from '@/lib/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -10,10 +9,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; responseId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const userId = session.userId
 
     const resolvedParams = await params
     const { id: formId, responseId } = resolvedParams
@@ -24,7 +21,7 @@ export async function DELETE(
     const form = await db
       .select()
       .from(forms)
-      .where(and(eq(forms.id, formId), eq(forms.userId, session.user.id)))
+      .where(and(eq(forms.id, formId), eq(forms.userId, userId)))
       .limit(1)
 
     if (form.length === 0) {

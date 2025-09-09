@@ -1,7 +1,6 @@
 'use client'
 
-import { signIn } from 'next-auth/react'
-import { useEffect, useState, Suspense } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,11 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useSignup } from '@/hooks/use-auth'
 
 // Provider interface removed - only using credentials authentication
 
 function SignUpContent() {
-  const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,63 +24,44 @@ function SignUpContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-
-  // OAuth providers removed - only using credentials authentication
-
-  const handleSignUp = async (providerId: string) => {
-    setIsLoading(providerId)
-    try {
-      await signIn(providerId, { callbackUrl })
-    } catch (error) {
-      console.error('Sign up error:', error)
-      setIsLoading(null)
-    }
-  }
+  const { signup } = useSignup()
 
   const handleCredentialsSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading('credentials')
+    setIsLoading(true)
     setAuthError('')
 
-    // Validation
+    // Basic validation
     if (!name || !email || !password || !confirmPassword) {
       setAuthError('Please fill in all fields')
-      setIsLoading(null)
+      setIsLoading(false)
       return
     }
 
     if (password !== confirmPassword) {
       setAuthError('Passwords do not match')
-      setIsLoading(null)
+      setIsLoading(false)
       return
     }
 
     if (password.length < 6) {
       setAuthError('Password must be at least 6 characters long')
-      setIsLoading(null)
+      setIsLoading(false)
       return
     }
 
     try {
-      const result = await signIn('credentials', {
-        name,
-        email,
-        password,
-        action: 'signup',
-        callbackUrl,
-        redirect: false,
-      })
+      const result = await signup(name, email, password, confirmPassword)
 
-      if (result?.error) {
-        setAuthError(result.error)
-        setIsLoading(null)
-      } else if (result?.ok) {
-        window.location.href = callbackUrl
+      if (!result.success) {
+        setAuthError(result.error || 'Signup failed')
+        setIsLoading(false)
       }
+      // If successful, the useSignup hook will handle the redirect
     } catch (error) {
-      console.error('Credentials sign up error:', error)
+      console.error('Signup error:', error)
       setAuthError('An unexpected error occurred')
-      setIsLoading(null)
+      setIsLoading(false)
     }
   }
 
@@ -150,7 +131,7 @@ function SignUpContent() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                disabled={isLoading === 'credentials'}
+                disabled={isLoading}
               />
             </div>
 
@@ -163,7 +144,7 @@ function SignUpContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading === 'credentials'}
+                disabled={isLoading}
               />
             </div>
 
@@ -177,14 +158,14 @@ function SignUpContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -201,14 +182,14 @@ function SignUpContent() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  disabled={isLoading === 'credentials'}
+                  disabled={isLoading}
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -218,9 +199,9 @@ function SignUpContent() {
             <Button
               type="submit"
               className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-medium"
-              disabled={isLoading === 'credentials'}
+              disabled={isLoading}
             >
-              {isLoading === 'credentials' ? (
+              {isLoading ? (
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
               ) : null}
               Create Account

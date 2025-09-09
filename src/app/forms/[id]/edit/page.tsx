@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSession } from '@/hooks/use-auth'
 import { useRouter } from 'next/navigation'
 import { ChatInterface } from '@/components/chat-interface'
 import { FormPreview } from '@/components/form-preview'
@@ -38,14 +38,7 @@ export default function EditFormPage({ params }: EditFormPageProps) {
     }
   }, [status, router])
 
-  // Load form data
-  useEffect(() => {
-    if (status === 'authenticated' && formId) {
-      loadFormData()
-    }
-  }, [status, formId])
-
-  const loadFormData = async () => {
+  const loadFormData = useCallback(async () => {
     if (!formId) return
 
     try {
@@ -67,7 +60,14 @@ export default function EditFormPage({ params }: EditFormPageProps) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [formId])
+
+  // Load form data
+  useEffect(() => {
+    if (status === 'authenticated' && formId) {
+      loadFormData()
+    }
+  }, [status, formId, loadFormData])
 
   const handleFormGenerated = (formSchema: FormSchema) => {
     setCurrentFormSchema(formSchema)

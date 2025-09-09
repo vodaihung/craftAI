@@ -24,7 +24,7 @@ function setCache<T>(key: string, data: T, ttlMs: number = 60000): void {
   // Limit cache size to prevent memory leaks
   if (cache.size > 100) {
     const oldestKey = cache.keys().next().value
-    cache.delete(oldestKey)
+    if (oldestKey) cache.delete(oldestKey)
   }
 
   cache.set(key, {

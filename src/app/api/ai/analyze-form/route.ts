@@ -3,8 +3,7 @@ import { generateObject } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { FormSchemaSchema } from '@/lib/db/schema'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { requireAuth } from '@/lib/session'
 
 // Analysis result schema
 const FormAnalysisSchema = z.object({
@@ -42,13 +41,8 @@ const AnalyzeFormRequestSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Authentication required'
-      }, { status: 401 })
-    }
+    const session = await requireAuth()
+    const userId = session.userId
 
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {

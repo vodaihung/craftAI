@@ -1,5 +1,6 @@
 // Real-time updates using Server-Sent Events (SSE)
 // This is a simplified implementation for the MVP
+import React from 'react'
 
 export class RealtimeClient {
   private eventSource: EventSource | null = null
@@ -110,12 +111,8 @@ export function useRealtime(userId?: string) {
 }
 
 // For environments where React is not available
-declare global {
-  var React: any
-}
-
-if (typeof React === 'undefined') {
-  // Fallback for non-React environments
+if (typeof window === 'undefined' && typeof React === 'undefined') {
+  // Fallback for non-React environments (server-side)
   (global as any).React = {
     useState: (initial: any) => [initial, () => {}],
     useEffect: () => {},

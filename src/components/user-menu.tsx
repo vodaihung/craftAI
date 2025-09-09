@@ -1,6 +1,5 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -12,22 +11,13 @@ import {
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { useLogout, useTabCloseCleanup } from '@/hooks/use-logout'
+import { useSession, useLogout } from '@/hooks/use-auth'
 
 export function UserMenu() {
   const { data: session, status, update } = useSession()
   const [isOpen, setIsOpen] = useState(false)
-  const { logout, isLoading: isLoggingOut } = useLogout({
-    redirectTo: '/',
-    onSuccess: () => {
-      // Force session update
-      update()
-    },
-    onError: (error) => {
-      console.error('Logout failed:', error)
-    }
-  })
-  const { setupTabCloseCleanup } = useTabCloseCleanup()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const { logout } = useLogout()
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -44,15 +34,16 @@ export function UserMenu() {
     }
   }, [isOpen])
 
-  // Setup tab close cleanup
-  useEffect(() => {
-    const cleanup = setupTabCloseCleanup()
-    return cleanup
-  }, [])
-
   const handleSignOut = async () => {
     setIsOpen(false)
-    await logout()
+    setIsLoggingOut(true)
+    try {
+      await logout('/')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   if (status === 'loading') {

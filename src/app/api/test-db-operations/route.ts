@@ -42,6 +42,7 @@ export async function GET() {
 
     console.log('📝 Creating test form...')
     const newForm = await createForm({
+      userId: 'test-user-id',
       name: 'Test Contact Form',
       schema: sampleFormSchema,
       isPublished: true

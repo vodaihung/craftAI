@@ -257,7 +257,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Radix UI](https://radix-ui.com) - Unstyled, accessible components
 - [OpenAI](https://openai.com) - AI-powered form generation
 - [Neon](https://neon.tech) - Serverless PostgreSQL
-- [NextAuth.js](https://next-auth.js.org) - Authentication for Next.js
+- Custom JWT Authentication - Secure manual authentication system
 
 ## 📞 Support
 

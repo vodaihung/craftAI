@@ -46,7 +46,7 @@ export async function GET(
     const contentType = getContentType(sanitizedFilename)
     
     // Return file with appropriate headers
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(Buffer.from(fileBuffer), {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${sanitizedFilename}"`,

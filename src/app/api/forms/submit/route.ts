@@ -5,7 +5,7 @@ import { z } from 'zod'
 // Request schema for form submissions
 const SubmitFormRequestSchema = z.object({
   formId: z.string().uuid('Invalid form ID'),
-  responseData: z.record(z.any()) // Dynamic object for form field responses
+  responseData: z.record(z.string(), z.any()) // Dynamic object for form field responses
 })
 
 // POST /api/forms/submit - Submit a form response
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: 'Invalid submission data',
-        details: error.errors
+        details: error.issues
       }, { status: 400 })
     }
     
