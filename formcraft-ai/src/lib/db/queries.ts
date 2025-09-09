@@ -46,8 +46,30 @@ export async function getAllForms(): Promise<Form[]> {
   return await db.select().from(forms).orderBy(desc(forms.createdAt))
 }
 
-export async function getFormsByUserId(userId: string): Promise<Form[]> {
-  return await db.select().from(forms).where(eq(forms.userId, userId)).orderBy(desc(forms.createdAt))
+export async function getFormsByUserId(userId: string): Promise<(Form & { responseCount: number })[]> {
+  // First get the basic forms
+  const basicForms = await db.select().from(forms).where(eq(forms.userId, userId)).orderBy(desc(forms.createdAt))
+
+  // Then get response counts for each form
+  const formsWithCounts = await Promise.all(
+    basicForms.map(async (form) => {
+      try {
+        const responseCount = await getFormResponseCount(form.id)
+        return {
+          ...form,
+          responseCount
+        }
+      } catch (error) {
+        console.error('Error getting response count for form:', form.id, error)
+        return {
+          ...form,
+          responseCount: 0
+        }
+      }
+    })
+  )
+
+  return formsWithCounts
 }
 
 export async function getPublishedFormById(id: string): Promise<Form | null> {

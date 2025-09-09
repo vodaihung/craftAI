@@ -49,6 +49,17 @@ function generateMockFormSchema(prompt: string): FormSchema {
           label: 'Message',
           required: true,
           placeholder: 'Enter your message here...'
+        },
+        {
+          id: 'attachment',
+          type: 'file',
+          label: 'Attachment (Optional)',
+          required: false,
+          fileConfig: {
+            maxSize: 5,
+            allowedTypes: ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'],
+            multiple: false
+          }
         }
       ],
       settings: {

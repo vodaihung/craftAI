@@ -16,20 +16,117 @@ interface Message {
 
 interface ChatInterfaceProps {
   onFormGenerated: (formSchema: FormSchema) => void
+  currentFormSchema?: FormSchema | null
+  formAnalytics?: {
+    responseCount: number
+    completionRate: number
+    averageTimeToComplete?: number
+  } | null
   className?: string
 }
 
-export function ChatInterface({ onFormGenerated, className = '' }: ChatInterfaceProps) {
+export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytics, className = '' }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: 'Hi! I\'m here to help you create forms using natural language. Just describe what kind of form you need, and I\'ll generate it for you. For example, you could say "Create a contact form with name, email, and message fields".',
+      content: 'Hi! I\'m your intelligent form assistant. I can help you:\n\n🔨 **Create & Modify Forms:**\n• "Create a contact form with name, email, and message fields"\n• "Add a phone number field" or "Add file upload for attachments"\n• "Remove the email field" or "Make the name field optional"\n\n🔍 **Analyze & Optimize:**\n• "Why isn\'t my form getting responses?"\n• "How can I improve my form\'s conversion rate?"\n• "Analyze my form for UX issues"\n\n💡 **Get Suggestions:**\n• "What fields should I add to my survey?"\n• "How can I make this form more user-friendly?"\n\nWhat would you like to work on today?',
       timestamp: new Date()
     }
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Detect if user wants form analysis vs generation
+  const isAnalysisRequest = (prompt: string): boolean => {
+    const analysisKeywords = [
+      'analyze', 'analysis', 'why', 'improve', 'optimize', 'better', 'issues', 'problems',
+      'suggestions', 'recommendations', 'conversion', 'responses', 'performance',
+      'ux', 'user experience', 'feedback', 'review', 'evaluate', 'assessment'
+    ]
+
+    const lowerPrompt = prompt.toLowerCase()
+    return analysisKeywords.some(keyword => lowerPrompt.includes(keyword)) && currentFormSchema !== null
+  }
+
+  // Generate intelligent quick actions based on current form state
+  const generateQuickActions = (): string[] => {
+    if (!currentFormSchema) {
+      // No form exists - suggest form creation
+      return [
+        "Create a contact form",
+        "Create a customer feedback survey",
+        "Create an event registration form",
+        "Create a job application form"
+      ]
+    }
+
+    // Check if the last message was an analysis
+    const lastMessage = messages[messages.length - 1]
+    const wasAnalysis = lastMessage?.content.includes('📊 Form Analysis Results')
+
+    if (wasAnalysis) {
+      // Show analysis-specific actions
+      return [
+        "Fix the critical issues",
+        "Implement high priority recommendations",
+        "Make the form more mobile-friendly",
+        "Reduce form abandonment",
+        "Optimize for better conversion",
+        "Add missing accessibility features"
+      ]
+    }
+
+    // Analyze current form and suggest relevant actions
+    const existingFields = currentFormSchema.fields.map(field => field.type.toLowerCase())
+    const existingFieldIds = currentFormSchema.fields.map(field => field.id.toLowerCase())
+    const actions: string[] = []
+
+    // Always include analysis options for existing forms
+    actions.push("Analyze my form for UX issues")
+    actions.push("Why isn't my form getting responses?")
+
+    // Suggest missing common fields (avoid duplicates)
+    if (!existingFields.includes('phone') && !existingFieldIds.some(id => id.includes('phone'))) {
+      actions.push("Add a phone number field")
+    }
+
+    if (!existingFields.includes('file') && !existingFieldIds.some(id => id.includes('file') || id.includes('upload'))) {
+      actions.push("Add file upload field")
+    }
+
+    if (!existingFields.includes('date') && !existingFieldIds.some(id => id.includes('date'))) {
+      actions.push("Add a date field")
+    }
+
+    if (!existingFields.includes('rating') && !existingFieldIds.some(id => id.includes('rating') || id.includes('star'))) {
+      actions.push("Add a rating field")
+    }
+
+    // Suggest field modifications for existing fields
+    const requiredFields = currentFormSchema.fields.filter(field => field.required)
+    const optionalFields = currentFormSchema.fields.filter(field => !field.required)
+
+    if (requiredFields.length > 2) {
+      // Find a non-essential required field to suggest making optional
+      const nonEssentialRequired = requiredFields.find(field =>
+        field.type !== 'email' && !field.id.toLowerCase().includes('name')
+      )
+      if (nonEssentialRequired) {
+        actions.push(`Make the ${nonEssentialRequired.label.toLowerCase()} field optional`)
+      }
+    }
+
+    // Suggest form improvements based on field count
+    if (currentFormSchema.fields.length > 6) {
+      actions.push("Simplify my form to reduce abandonment")
+    } else if (currentFormSchema.fields.length < 3) {
+      actions.push("Add more fields to collect better data")
+    }
+
+    // Limit to 6 actions to avoid overwhelming the user
+    return actions.slice(0, 6)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,52 +144,134 @@ export function ChatInterface({ onFormGenerated, className = '' }: ChatInterface
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/ai/generate-form', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: userMessage.content,
-          conversationHistory: messages.map(m => ({
-            role: m.role,
-            content: m.content
-          }))
+      const isAnalysis = isAnalysisRequest(userMessage.content)
+
+      if (isAnalysis && currentFormSchema) {
+        // Handle form analysis
+        const response = await fetch('/api/ai/analyze-form', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            formSchema: currentFormSchema,
+            context: {
+              responseCount: formAnalytics?.responseCount,
+              completionRate: formAnalytics?.completionRate,
+              averageTimeToComplete: formAnalytics?.averageTimeToComplete,
+              userQuestion: userMessage.content
+            }
+          })
         })
-      })
 
-      const result = await response.json()
+        const result = await response.json()
 
-      if (result.success) {
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: `Great! I've created a "${result.formSchema.title}" for you. You can see the preview on the right. The form includes ${result.formSchema.fields.length} fields. Would you like me to modify anything?`,
-          timestamp: new Date()
+        if (result.success) {
+          const analysis = result.analysis
+          let responseContent = `## 📊 Form Analysis Results\n\n`
+          responseContent += `**Overall Score: ${analysis.overallScore}/100**\n\n`
+
+          if (analysis.issues.length > 0) {
+            responseContent += `### 🚨 Issues Found:\n`
+            analysis.issues.forEach((issue: any, index: number) => {
+              const emoji = issue.type === 'critical' ? '🔴' : issue.type === 'warning' ? '🟡' : '💡'
+              responseContent += `${emoji} **${issue.title}** (${issue.impact} impact)\n`
+              responseContent += `${issue.description}\n`
+              responseContent += `*Solution:* ${issue.solution}\n\n`
+            })
+          }
+
+          if (analysis.recommendations.length > 0) {
+            responseContent += `### 💡 Recommendations:\n`
+            analysis.recommendations.forEach((rec: any) => {
+              const priority = rec.priority === 'high' ? '🔥' : rec.priority === 'medium' ? '⚡' : '💫'
+              responseContent += `${priority} **${rec.title}**\n`
+              responseContent += `${rec.description}\n`
+              responseContent += `*Expected Impact:* ${rec.expectedImpact}\n\n`
+            })
+          }
+
+          responseContent += `### 📝 Summary:\n${analysis.summary}`
+
+          // Add contextual next steps
+          responseContent += `\n\n### 🎯 What would you like to do next?\n`
+          responseContent += `You can ask me to implement any of the recommendations above, or try:\n`
+          responseContent += `• "Fix the critical issues"\n`
+          responseContent += `• "Implement the high priority recommendations"\n`
+          responseContent += `• "Make the form more mobile-friendly"\n`
+          responseContent += `• "Reduce form abandonment"`
+
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: responseContent,
+            timestamp: new Date()
+          }
+
+          setMessages(prev => [...prev, assistantMessage])
+        } else {
+          throw new Error(result.error)
         }
-
-        setMessages(prev => [...prev, assistantMessage])
-        onFormGenerated(result.formSchema)
       } else {
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: `I'm sorry, I encountered an error while generating your form: ${result.error}. Could you please try rephrasing your request?`,
-          timestamp: new Date()
-        }
+        // Handle form generation/modification
+        const response = await fetch('/api/ai/generate-form', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: userMessage.content,
+            conversationHistory: messages.map(m => ({
+              role: m.role,
+              content: m.content
+            })),
+            currentFormSchema: currentFormSchema
+          })
+        })
 
-        setMessages(prev => [...prev, errorMessage])
+        const result = await response.json()
+
+        if (result.success) {
+          const isModification = currentFormSchema !== null
+          const fieldCount = result.formSchema.fields.length
+          const previousFieldCount = currentFormSchema?.fields.length || 0
+
+          let responseContent = ''
+          if (isModification) {
+            if (fieldCount > previousFieldCount) {
+              responseContent = `Perfect! I've added the new field(s) to your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). You can see the updated preview on the right.`
+            } else if (fieldCount < previousFieldCount) {
+              responseContent = `Done! I've removed the field(s) from your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). Check the updated preview on the right.`
+            } else {
+              responseContent = `Great! I've updated your "${result.formSchema.title}" form. The form still has ${fieldCount} fields but with your requested changes. See the updated preview on the right.`
+            }
+          } else {
+            responseContent = `Great! I've created a "${result.formSchema.title}" for you. You can see the preview on the right. The form includes ${fieldCount} fields. Would you like me to add, remove, or modify anything?`
+          }
+
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: responseContent,
+            timestamp: new Date()
+          }
+
+          setMessages(prev => [...prev, assistantMessage])
+          onFormGenerated(result.formSchema)
+        } else {
+          throw new Error(result.error)
+        }
       }
     } catch (error) {
+      console.error('Chat error:', error)
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'I\'m sorry, there was a technical issue. Please try again in a moment.',
+        content: `I apologize, but I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or rephrase your request.`,
         timestamp: new Date()
       }
 
       setMessages(prev => [...prev, errorMessage])
-      console.error('Chat error:', error)
     } finally {
       setIsLoading(false)
     }
@@ -154,6 +333,26 @@ export function ChatInterface({ onFormGenerated, className = '' }: ChatInterface
             </div>
           )}
         </div>
+
+        {/* Dynamic Quick Actions */}
+        {!isLoading && (messages.length === 1 || (messages.length > 1 && messages[messages.length - 1].role === 'assistant')) && (
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              {currentFormSchema ? "Suggested improvements:" : "Quick actions:"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {generateQuickActions().map((action, index) => (
+                <button
+                  key={`${currentFormSchema?.id || 'new'}-${index}`}
+                  onClick={() => setInput(action)}
+                  className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded-full transition-colors"
+                >
+                  {action}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="flex space-x-2">

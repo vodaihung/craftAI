@@ -10,7 +10,8 @@ const GenerateFormRequestSchema = z.object({
   conversationHistory: z.array(z.object({
     role: z.enum(['user', 'assistant']),
     content: z.string()
-  })).optional()
+  })).optional(),
+  currentFormSchema: FormSchemaSchema.optional()
 })
 
 export async function POST(request: NextRequest) {
@@ -25,19 +26,70 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json()
-    const { prompt, conversationHistory = [] } = GenerateFormRequestSchema.parse(body)
+    const { prompt, conversationHistory = [], currentFormSchema } = GenerateFormRequestSchema.parse(body)
 
     console.log('🤖 Generating form from prompt:', prompt)
 
     // Build conversation context
-    const messages = [
-      {
-        role: 'system' as const,
-        content: `You are an expert form builder AI. Your job is to convert natural language descriptions into structured form schemas.
+    const systemPrompt = currentFormSchema
+      ? `You are an expert form builder AI and UX consultant. Your job is to modify existing form schemas based on user requests while providing helpful guidance.
+
+IMPORTANT: You are working with an EXISTING form. The user wants to modify it, not create a new one from scratch.
+
+Current form schema:
+${JSON.stringify(currentFormSchema, null, 2)}
+
+Guidelines for modifications:
+- PRESERVE existing fields unless explicitly asked to remove them
+- When adding fields, append them to the existing fields array
+- When removing fields, only remove the specifically mentioned fields
+- When modifying fields, only change the requested properties
+- Keep the same form title and description unless explicitly asked to change them
+- Maintain field IDs for existing fields to preserve form data
+- For new fields, generate unique IDs that don't conflict with existing ones
+
+User request types:
+- "Add [field]" → Add new field(s) while keeping all existing fields
+- "Remove [field]" → Remove only the specified field(s)
+- "Change [field]" → Modify only the specified field properties
+- "Make [field] required/optional" → Update only the required property
+
+Field types available:
+- text: Single line text input
+- email: Email address input with validation
+- textarea: Multi-line text input
+- number: Numeric input
+- select: Dropdown selection
+- radio: Single choice from multiple options
+- checkbox: Multiple choice selection
+- rating: Star rating (1-5 scale by default)
+- date: Date picker
+- file: File upload (specify allowed types and size limits)
+
+CONVERSATIONAL INTELLIGENCE:
+- If the request is vague or could benefit from clarification, ask specific follow-up questions
+- Provide proactive suggestions for improving the form
+- Consider UX best practices and suggest improvements
+- If adding complex fields (like select/radio), suggest appropriate options
+
+Always respond with the COMPLETE modified form schema, preserving all existing fields unless explicitly asked to remove them.`
+      : `You are an expert form builder AI and UX consultant. Your job is to convert natural language descriptions into structured form schemas while providing intelligent guidance.
+
+CONVERSATIONAL INTELLIGENCE:
+- If the request is vague, ask clarifying questions to create better forms
+- Suggest improvements and best practices proactively
+- Consider the form's purpose and target audience
+- Ask about specific requirements when they could impact the form design
+
+Examples of good clarifying questions:
+- "Should the rating be 1-5 stars or 1-10 scale?"
+- "Would you like the phone number field to be required or optional?"
+- "Should I add any validation rules for the email field?"
+- "Do you want to collect any additional contact information?"
 
 Guidelines:
 - Create forms that are user-friendly and accessible
-- Use appropriate field types (text, email, textarea, number, select, radio, checkbox, rating, date)
+- Use appropriate field types (text, email, textarea, number, select, radio, checkbox, rating, date, file)
 - Set reasonable validation rules
 - Include helpful placeholder text
 - Make required fields logical and minimal
@@ -56,8 +108,14 @@ Field types available:
 - checkbox: Multiple choice selection
 - rating: Star rating (1-5 scale by default)
 - date: Date picker
+- file: File upload (specify allowed types and size limits)
 
 Always respond with a valid JSON schema that matches the FormSchema type.`
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: systemPrompt
       },
       ...conversationHistory,
       {
@@ -90,7 +148,7 @@ Always respond with a valid JSON schema that matches the FormSchema type.`
       return NextResponse.json({
         success: false,
         error: 'Invalid request format',
-        details: error.errors
+        details: error.issues
       }, { status: 400 })
     }
 

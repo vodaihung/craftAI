@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { CheckCircle, AlertCircle, Star, Loader2 } from 'lucide-react'
+import { FileUpload } from '@/components/file-upload'
 import type { FormSchema } from '@/lib/db/schema'
 
 interface PublicFormRendererProps {
@@ -244,6 +245,21 @@ export function PublicFormRenderer({ formId, formSchema }: PublicFormRendererPro
               <p className="text-sm text-red-500">{validationErrors[field.id]}</p>
             )}
           </div>
+        )
+
+      case 'file':
+        return (
+          <FileUpload
+            fieldId={field.id}
+            formId={formId}
+            label={field.label}
+            required={field.required}
+            multiple={field.fileConfig?.multiple || false}
+            maxSize={field.fileConfig?.maxSize || 10}
+            allowedTypes={field.fileConfig?.allowedTypes || []}
+            value={formData[field.id] || []}
+            onChange={(files) => handleInputChange(field.id, files)}
+          />
         )
 
       case 'select':

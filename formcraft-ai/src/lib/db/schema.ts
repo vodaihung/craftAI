@@ -96,7 +96,7 @@ export type NewFormResponse = typeof formResponses.$inferInsert
 // Form field types for the schema JSONB
 export const FormFieldSchema = z.object({
   id: z.string(),
-  type: z.enum(['text', 'email', 'textarea', 'number', 'select', 'radio', 'checkbox', 'rating', 'date']),
+  type: z.enum(['text', 'email', 'textarea', 'number', 'select', 'radio', 'checkbox', 'rating', 'date', 'file']),
   label: z.string(),
   placeholder: z.string().optional(),
   required: z.boolean().default(false),
@@ -107,9 +107,15 @@ export const FormFieldSchema = z.object({
     max: z.number().optional(),
     pattern: z.string().optional(),
   }).optional(),
+  fileConfig: z.object({
+    maxSize: z.number().optional(), // in MB
+    allowedTypes: z.array(z.string()).optional(), // MIME types
+    multiple: z.boolean().optional(),
+  }).optional(), // for file fields
 })
 
 export const FormSchemaSchema = z.object({
+  id: z.string().optional(), // Optional ID for saved forms
   title: z.string(),
   description: z.string().optional(),
   fields: z.array(FormFieldSchema),

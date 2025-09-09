@@ -8,7 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { TroubleshootChat } from '@/components/troubleshoot-chat'
 import { SubscriptionManager } from '@/components/subscription-manager'
-import { 
+import { ShareFormModal } from '@/components/share-form-modal'
+import { RealTimeNotifications } from '@/components/real-time-notifications'
+import { DashboardLoading } from '@/components/loading'
+import ErrorBoundary from '@/components/error-boundary'
+import {
   Plus,
   Eye,
   Edit,
@@ -23,7 +27,8 @@ import {
   MessageCircle,
   Bot,
   Crown,
-  Settings
+  Settings,
+  Loader2
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Form } from '@/lib/db/schema'
@@ -42,6 +47,7 @@ export default function DashboardPage() {
   const [troubleshootFormName, setTroubleshootFormName] = useState<string>('')
   const [showSubscriptionManager, setShowSubscriptionManager] = useState(false)
   const [currentTier, setCurrentTier] = useState('free')
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -78,46 +84,57 @@ export default function DashboardPage() {
       return
     }
 
+    const actionKey = `delete-${formId}`
     try {
+      setActionLoading(prev => ({ ...prev, [actionKey]: true }))
+
       const response = await fetch(`/api/forms/${formId}`, {
         method: 'DELETE'
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
         setForms(forms.filter(form => form.id !== formId))
-        alert('Form deleted successfully!')
+        console.log('Form deleted successfully!')
       } else {
         alert(`Failed to delete form: ${result.error}`)
       }
     } catch (error) {
       console.error('Error deleting form:', error)
       alert('Failed to delete form. Please try again.')
+    } finally {
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }))
     }
   }
 
   const handleTogglePublish = async (formId: string, isCurrentlyPublished: boolean) => {
+    const actionKey = `publish-${formId}`
     try {
+      setActionLoading(prev => ({ ...prev, [actionKey]: true }))
+
       const endpoint = `/api/forms/${formId}/publish`
       const method = isCurrentlyPublished ? 'DELETE' : 'POST'
-      
+
       const response = await fetch(endpoint, { method })
       const result = await response.json()
-      
+
       if (result.success) {
-        setForms(forms.map(form => 
-          form.id === formId 
+        setForms(forms.map(form =>
+          form.id === formId
             ? { ...form, isPublished: !isCurrentlyPublished }
             : form
         ))
-        alert(result.message)
+        // Use a more subtle notification instead of alert
+        console.log(result.message)
       } else {
         alert(`Failed to ${isCurrentlyPublished ? 'unpublish' : 'publish'} form: ${result.error}`)
       }
     } catch (error) {
       console.error('Error toggling publish status:', error)
       alert('Failed to update form status. Please try again.')
+    } finally {
+      setActionLoading(prev => ({ ...prev, [actionKey]: false }))
     }
   }
 
@@ -131,10 +148,9 @@ export default function DashboardPage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your forms...</p>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-6">
+          <DashboardLoading />
         </div>
       </div>
     )
@@ -162,7 +178,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4">
@@ -316,18 +333,24 @@ export default function DashboardPage() {
                       
                       <div className="flex items-center space-x-2">
                         {form.isPublished && (
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/forms/${form.id}`}>
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Link>
-                          </Button>
+                          <>
+                            <RealTimeNotifications
+                              formId={form.id}
+                              onNewResponse={fetchForms}
+                            />
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/forms/${form.id}`}>
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Link>
+                            </Button>
+                          </>
                         )}
                         
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/dashboard/${form.id}/responses`}>
                             <BarChart3 className="w-4 h-4 mr-1" />
-                            Analytics
+                            Responses
                           </Link>
                         </Button>
 
@@ -343,26 +366,57 @@ export default function DashboardPage() {
                           Troubleshoot
                         </Button>
                         
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleTogglePublish(form.id, form.isPublished)}
+                          disabled={actionLoading[`publish-${form.id}`]}
                         >
-                          <Share className="w-4 h-4 mr-1" />
+                          {actionLoading[`publish-${form.id}`] ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Globe className="w-4 h-4 mr-1" />
+                          )}
                           {form.isPublished ? 'Unpublish' : 'Publish'}
                         </Button>
-                        
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
+
+                        <ShareFormModal
+                          formId={form.id}
+                          formName={form.name}
+                          isPublished={form.isPublished}
+                          onPublishToggle={() => handleTogglePublish(form.id, form.isPublished)}
+                        >
+                          <Button variant="outline" size="sm">
+                            <Share className="w-4 h-4 mr-1" />
+                            Share
+                          </Button>
+                        </ShareFormModal>
+
+                        <Link href={`/dashboard/${form.id}/analytics`}>
+                          <Button variant="outline" size="sm">
+                            <BarChart3 className="w-4 h-4 mr-1" />
+                            Analytics
+                          </Button>
+                        </Link>
+
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/forms/${form.id}/edit`}>
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Link>
                         </Button>
                         
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleDeleteForm(form.id, form.name)}
+                          disabled={actionLoading[`delete-${form.id}`]}
                         >
-                          <Trash2 className="w-4 h-4 mr-1" />
+                          {actionLoading[`delete-${form.id}`] ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 mr-1" />
+                          )}
                           Delete
                         </Button>
                       </div>
@@ -422,6 +476,7 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

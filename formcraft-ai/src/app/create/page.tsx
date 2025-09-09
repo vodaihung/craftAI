@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { ChatInterface } from '@/components/chat-interface'
 import { FormPreview } from '@/components/form-preview'
+import { TemplateSelector } from '@/components/template-selector'
+import { ChatErrorBoundary, FormErrorBoundary } from '@/components/error-boundary'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Save, Share } from 'lucide-react'
@@ -18,6 +20,7 @@ export default function CreateFormPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [formsCount, setFormsCount] = useState(0)
   const [currentTier] = useState('free') // This would come from user data in a real app
+  const [showTemplates, setShowTemplates] = useState(true)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -50,6 +53,18 @@ export default function CreateFormPage() {
     }
 
     setCurrentFormSchema(formSchema)
+    setShowTemplates(false) // Hide templates once form is generated
+  }
+
+  const handleTemplateSelect = (template: any) => {
+    if (template.id === 'blank') {
+      setCurrentFormSchema(template.schema)
+      setShowTemplates(false)
+    } else {
+      // Use template as starting point
+      setCurrentFormSchema(template.schema)
+      setShowTemplates(false)
+    }
   }
 
   const handleSaveForm = async () => {
@@ -74,9 +89,11 @@ export default function CreateFormPage() {
       const result = await response.json()
 
       if (result.success) {
-        alert(`Form "${result.form.name}" saved successfully! You can find it in your dashboard.`)
+        // Update the form schema with the saved form ID
+        setCurrentFormSchema(prev => prev ? { ...prev, id: result.form.id } : null)
+        alert(`Form "${result.form.name}" saved successfully! You can now share it or find it in your dashboard.`)
         setFormsCount(prev => prev + 1) // Update local count
-        router.push('/dashboard') // Redirect to dashboard
+        // Don't redirect immediately - let user share if they want
       } else {
         throw new Error(result.error || 'Failed to save form')
       }
@@ -88,11 +105,26 @@ export default function CreateFormPage() {
     }
   }
 
-  const handleShareForm = () => {
+  const handleShareForm = async () => {
     if (!currentFormSchema) return
-    
-    // TODO: Implement form sharing
-    alert('Sharing functionality will be implemented in the next phase!')
+
+    // First save the form if it hasn't been saved yet
+    if (!currentFormSchema.id) {
+      alert('Please save your form first before sharing.')
+      return
+    }
+
+    // Show sharing modal with public URL
+    const publicUrl = `${window.location.origin}/forms/${currentFormSchema.id}`
+
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      alert(`Form URL copied to clipboard!\n\n${publicUrl}\n\nShare this link with anyone to collect responses.`)
+    } catch (error) {
+      // Fallback for browsers that don't support clipboard API
+      prompt('Copy this URL to share your form:', publicUrl)
+    }
   }
 
   if (status === 'loading') {
@@ -123,10 +155,25 @@ export default function CreateFormPage() {
                   Back to Home
                 </Button>
               </Link>
+              {!showTemplates && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTemplates(true)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Templates
+                </Button>
+              )}
               <div>
-                <h1 className="text-xl font-semibold">Create New Form</h1>
+                <h1 className="text-xl font-semibold">
+                  {showTemplates ? 'Choose Template' : 'Create New Form'}
+                </h1>
                 <p className="text-sm text-muted-foreground">
-                  Describe your form and watch AI create it instantly
+                  {showTemplates
+                    ? 'Start with a template or create from scratch'
+                    : 'Describe your form and watch AI create it instantly'
+                  }
                 </p>
               </div>
             </div>
@@ -154,45 +201,61 @@ export default function CreateFormPage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
-          {/* Chat Interface */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <span className="text-primary-foreground font-bold text-sm">AI</span>
-                  </div>
-                  <span>Form Builder Assistant</span>
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            
-            <ChatInterface
-              onFormGenerated={handleFormGenerated}
-              className="flex-1"
-            />
-          </div>
+        {showTemplates ? (
+          /* Template Selection */
+          <TemplateSelector onTemplateSelect={handleTemplateSelect} />
+        ) : (
+          /* Form Builder */
+          <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
+            {/* Chat Interface */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                      <span className="text-primary-foreground font-bold text-sm">AI</span>
+                    </div>
+                    <span>Form Builder Assistant</span>
+                  </CardTitle>
+                </CardHeader>
+              </Card>
 
-          {/* Form Preview */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">📝</span>
-                  </div>
-                  <span>Live Preview</span>
-                </CardTitle>
-              </CardHeader>
-            </Card>
-            
-            <FormPreview
-              formSchema={currentFormSchema}
-              className="flex-1"
-            />
+              <ChatErrorBoundary>
+                <ChatInterface
+                  onFormGenerated={handleFormGenerated}
+                  currentFormSchema={currentFormSchema}
+                  formAnalytics={currentFormSchema ? {
+                    responseCount: 0, // TODO: Get from actual analytics
+                    completionRate: 0, // TODO: Get from actual analytics
+                    averageTimeToComplete: undefined
+                  } : null}
+                  className="flex-1"
+                />
+              </ChatErrorBoundary>
+            </div>
+
+            {/* Form Preview */}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">📝</span>
+                    </div>
+                    <span>Live Preview</span>
+                  </CardTitle>
+                </CardHeader>
+              </Card>
+
+              <FormErrorBoundary>
+                <FormPreview
+                  formSchema={currentFormSchema}
+                  className="flex-1"
+                />
+              </FormErrorBoundary>
+            </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   )

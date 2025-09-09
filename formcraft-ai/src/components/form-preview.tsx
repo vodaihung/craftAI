@@ -116,6 +116,22 @@ export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
           />
         )
 
+      case 'file':
+        return (
+          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center">
+            <div className="text-muted-foreground">
+              📁 File upload field
+              <div className="text-xs mt-1">
+                {field.fileConfig?.multiple ? 'Multiple files' : 'Single file'} •
+                Max {field.fileConfig?.maxSize || 10}MB
+                {field.fileConfig?.allowedTypes && field.fileConfig.allowedTypes.length > 0 && (
+                  <div>Types: {field.fileConfig.allowedTypes.map(type => type.split('/')[1]).join(', ')}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+
       case 'select':
         return (
           <Select value={value} onValueChange={(val) => handleInputChange(field.id, val)}>

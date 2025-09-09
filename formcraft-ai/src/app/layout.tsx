@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from '@/components/session-provider';
+import ErrorBoundary from '@/components/error-boundary';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,14 +30,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>
-          <ThemeProvider
-            defaultTheme="system"
-            storageKey="formcraft-theme"
-          >
-            {children}
-          </ThemeProvider>
-        </SessionProvider>
+        <ErrorBoundary>
+          <SessionProvider>
+            <ThemeProvider
+              defaultTheme="system"
+              storageKey="formcraft-theme"
+            >
+              {children}
+            </ThemeProvider>
+          </SessionProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

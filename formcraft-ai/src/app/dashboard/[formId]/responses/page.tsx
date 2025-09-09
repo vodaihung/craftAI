@@ -7,15 +7,20 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { 
-  ArrowLeft, 
-  Download, 
-  Search, 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  ArrowLeft,
+  Download,
+  Search,
   Filter,
   Calendar,
   Users,
   Eye,
-  Trash2
+  Trash2,
+  Loader2,
+  X,
+  FileText,
+  ExternalLink
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -35,9 +40,7 @@ interface FormWithResponses {
 }
 
 interface ResponsesPageProps {
-  params: {
-    formId: string
-  }
+  params: Promise<{ formId: string }>
 }
 
 export default function ResponsesPage({ params }: ResponsesPageProps) {
@@ -48,34 +51,43 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedResponses, setSelectedResponses] = useState<string[]>([])
+  const [resolvedParams, setResolvedParams] = useState<{ formId: string } | null>(null)
+  const [viewingResponse, setViewingResponse] = useState<any>(null)
+  const [deletingResponseId, setDeletingResponseId] = useState<string | null>(null)
+
+  useEffect(() => {
+    params.then(setResolvedParams)
+  }, [params])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin')
       return
     }
-    
-    if (status === 'authenticated') {
+
+    if (status === 'authenticated' && resolvedParams) {
       fetchFormResponses()
     }
-  }, [status, router, params.formId])
+  }, [status, router, resolvedParams])
 
   const fetchFormResponses = async () => {
+    if (!resolvedParams) return
+
     try {
       setIsLoading(true)
-      
+
       // Fetch form details
-      const formResponse = await fetch(`/api/forms/${params.formId}`)
+      const formResponse = await fetch(`/api/forms/${resolvedParams.formId}`)
       const formResult = await formResponse.json()
-      
+
       if (!formResult.success) {
         throw new Error(formResult.error || 'Failed to fetch form')
       }
 
       // Fetch responses
-      const responsesResponse = await fetch(`/api/forms/${params.formId}/responses?includeData=true`)
+      const responsesResponse = await fetch(`/api/forms/${resolvedParams.formId}/responses?includeData=true`)
       const responsesResult = await responsesResponse.json()
-      
+
       if (!responsesResult.success) {
         throw new Error(responsesResult.error || 'Failed to fetch responses')
       }
@@ -90,6 +102,47 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
       console.error('Error fetching form responses:', err)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleViewResponse = (response: any) => {
+    setViewingResponse(response)
+  }
+
+  const handleDeleteResponse = async (responseId: string) => {
+    if (!resolvedParams) return
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this response? This action cannot be undone.'
+    )
+
+    if (!confirmed) return
+
+    setDeletingResponseId(responseId)
+
+    try {
+      const response = await fetch(`/api/forms/${resolvedParams.formId}/responses/${responseId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete response')
+      }
+
+      // Remove the response from local state
+      setFormData(prev => prev ? {
+        ...prev,
+        responses: prev.responses.filter(r => r.id !== responseId),
+        totalResponses: prev.totalResponses - 1
+      } : null)
+
+    } catch (err) {
+      console.error('Error deleting response:', err)
+      alert(err instanceof Error ? err.message : 'Failed to delete response')
+    } finally {
+      setDeletingResponseId(null)
     }
   }
 
@@ -315,40 +368,88 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
         ) : (
           <div className="space-y-4">
             {filteredResponses.map((response) => (
-              <Card key={response.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
+              <Card key={response.id} className="hover:shadow-md transition-all duration-200 border-l-4 border-l-primary/20 hover:border-l-primary/60">
+                <CardHeader className="pb-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Badge variant="outline">
-                          Response #{response.id.slice(-8)}
+                      <div className="flex items-center space-x-3 mb-3">
+                        <Badge variant="outline" className="font-mono text-xs">
+                          #{response.id.slice(-8)}
                         </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(response.submittedAt)}
-                        </span>
+                        <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          <span>{formatDate(response.submittedAt)}</span>
+                        </div>
                       </div>
-                      
-                      <div className="grid gap-2">
-                        {formData.schema?.fields?.map((field: any) => (
-                          <div key={field.id} className="flex items-start space-x-2">
-                            <span className="text-sm font-medium min-w-[120px]">
-                              {field.label}:
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {response.data[field.id] || 'No response'}
-                            </span>
+
+                      <div className="grid gap-3">
+                        {formData.schema?.fields?.slice(0, 4).map((field: any) => {
+                          const value = response.data[field.id]
+                          let displayValue = 'No response'
+                          let displayIcon = null
+
+                          if (value) {
+                            if (field.type === 'file' && Array.isArray(value)) {
+                              // Handle file uploads
+                              displayValue = value.length > 0
+                                ? `${value.length} file${value.length > 1 ? 's' : ''} uploaded`
+                                : 'No files'
+                              displayIcon = <FileText className="w-3 h-3 text-blue-500" />
+                            } else if (field.type === 'select' && Array.isArray(value)) {
+                              // Handle multi-select
+                              displayValue = value.join(', ')
+                            } else if (typeof value === 'object') {
+                              // Handle other objects by converting to JSON
+                              displayValue = JSON.stringify(value)
+                            } else {
+                              // Handle primitive values
+                              displayValue = String(value)
+                            }
+                          }
+
+                          return (
+                            <div key={field.id} className="flex items-start space-x-3 py-1">
+                              <div className="flex items-center space-x-1 min-w-[140px]">
+                                {displayIcon}
+                                <span className="text-sm font-medium text-foreground/80">
+                                  {field.label}:
+                                </span>
+                              </div>
+                              <span className="text-sm text-muted-foreground flex-1 truncate">
+                                {displayValue}
+                              </span>
+                            </div>
+                          )
+                        })}
+                        {formData.schema?.fields?.length > 4 && (
+                          <div className="text-xs text-muted-foreground pt-1 border-t">
+                            +{formData.schema.fields.length - 4} more fields
                           </div>
-                        ))}
+                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewResponse(response)}
+                      >
                         <Eye className="w-4 h-4 mr-1" />
                         View
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="w-4 h-4 mr-1" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteResponse(response.id)}
+                        disabled={deletingResponseId === response.id}
+                        className="text-red-600 hover:text-red-700 hover:border-red-300"
+                      >
+                        {deletingResponseId === response.id ? (
+                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-1" />
+                        )}
                         Delete
                       </Button>
                     </div>
@@ -359,6 +460,101 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
           </div>
         )}
       </main>
+
+      {/* Response View Modal */}
+      <Dialog open={!!viewingResponse} onOpenChange={() => setViewingResponse(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <FileText className="w-5 h-5" />
+              <span>Response Details</span>
+              <Badge variant="outline">
+                #{viewingResponse?.id.slice(-8)}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewingResponse && (
+            <div className="space-y-6">
+              {/* Response Metadata */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground">Submitted At</span>
+                  <p className="text-sm">{formatDate(viewingResponse.submittedAt)}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-muted-foreground">Response ID</span>
+                  <p className="text-sm font-mono">{viewingResponse.id}</p>
+                </div>
+              </div>
+
+              {/* Response Data */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Form Responses</h3>
+                <div className="grid gap-4">
+                  {formData?.schema?.fields?.map((field: any) => {
+                    const value = viewingResponse.data[field.id]
+
+                    return (
+                      <Card key={field.id} className="p-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{field.label}</h4>
+                            <Badge variant="secondary" className="text-xs">
+                              {field.type}
+                            </Badge>
+                          </div>
+
+                          <div className="text-sm text-muted-foreground">
+                            {field.type === 'file' && Array.isArray(value) ? (
+                              value.length > 0 ? (
+                                <div className="space-y-2">
+                                  {value.map((file: any, index: number) => (
+                                    <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
+                                      <div className="flex items-center space-x-2">
+                                        <FileText className="w-4 h-4" />
+                                        <span>{file.originalName || file.filename}</span>
+                                        <Badge variant="outline" className="text-xs">
+                                          {(file.size / 1024).toFixed(1)} KB
+                                        </Badge>
+                                      </div>
+                                      {file.url && (
+                                        <Button variant="ghost" size="sm" asChild>
+                                          <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                            <ExternalLink className="w-4 h-4" />
+                                          </a>
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">No files uploaded</span>
+                              )
+                            ) : field.type === 'select' && Array.isArray(value) ? (
+                              <div className="flex flex-wrap gap-1">
+                                {value.map((item: string, index: number) => (
+                                  <Badge key={index} variant="outline">{item}</Badge>
+                                ))}
+                              </div>
+                            ) : value ? (
+                              <div className="whitespace-pre-wrap break-words">
+                                {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">No response</span>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
