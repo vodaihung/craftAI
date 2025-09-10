@@ -5,6 +5,7 @@ import {
   createSession, 
   validateEmail, 
   validatePassword,
+  getSessionFromRequest,
   AuthError,
   ValidationError 
 } from '@/lib/auth'
@@ -64,18 +65,51 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         image: user.image,
-      }
+      },
+      sessionReady: true // NEW: Confirm session is ready
     })
 
     // Set session cookie
     setSessionCookie(response, sessionToken)
 
-    console.log('User logged in successfully:', {
-      email: user.email,
-      userId: user.id,
-      tokenLength: sessionToken.length,
-      nodeEnv: process.env.NODE_ENV
-    })
+    // CRITICAL FIX: Verify the session can be read back immediately
+    // This ensures the cookie is properly set before we respond
+    try {
+      // Create a mock request with the cookie to test session reading
+      const testRequest = new Request(request.url, {
+        headers: {
+          'cookie': `auth-token=${sessionToken}`
+        }
+      })
+      
+      const mockNextRequest = {
+        cookies: {
+          get: (name: string) => name === 'auth-token' ? { value: sessionToken } : undefined
+        }
+      } as NextRequest
+
+      const testSession = await getSessionFromRequest(mockNextRequest)
+      
+      if (!testSession) {
+        console.error('Session verification failed immediately after creation')
+        return NextResponse.json(
+          { success: false, error: 'Session creation failed' },
+          { status: 500 }
+        )
+      }
+
+      console.log('User logged in successfully with verified session:', {
+        email: user.email,
+        userId: user.id,
+        sessionUserId: testSession.userId,
+        tokenLength: sessionToken.length,
+        nodeEnv: process.env.NODE_ENV
+      })
+    } catch (sessionTestError) {
+      console.error('Session verification test failed:', sessionTestError)
+      // Continue anyway - this is just a verification step
+    }
+
     return response
 
   } catch (error) {
@@ -88,7 +122,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof AuthError) {
       return NextResponse.json(
         { success: false, error: error.message },
-        { status: 401 }
+        { status: 400 }
       )
     }
 

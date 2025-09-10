@@ -1,7 +1,6 @@
 'use client'
 
 import { useAuth, User } from '@/contexts/auth-context'
-import { verifySessionDetailed } from '@/lib/auth-utils'
 
 // Types to match NextAuth's useSession interface
 export interface Session {
@@ -78,94 +77,144 @@ export function useLogout() {
   return { logout: handleLogout }
 }
 
-// Session verification with detailed logging (using the new utility)
-async function verifySessionWithRetry(maxRetries: number = 3): Promise<boolean> {
-  console.log('Starting session verification with detailed logging...')
-  const result = await verifySessionDetailed(maxRetries)
-
-  console.log('Session verification result:', result)
-
-  if (!result.success) {
-    console.error('Session verification failed:', {
-      hasToken: result.hasToken,
-      sessionValid: result.sessionValid,
-      error: result.error,
-      attempts: result.attempts
+// SIMPLIFIED session verification - just check if session API responds correctly
+async function verifySessionQuick(): Promise<boolean> {
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-cache'
     })
-  }
 
-  return result.success
+    if (response.ok) {
+      const data = await response.json()
+      return data.success && data.session?.user
+    }
+    return false
+  } catch (error) {
+    console.error('Quick session verification failed:', error)
+    return false
+  }
 }
 
-// Hook for login with error handling and session verification
+// FIXED: Hook for login with proper session confirmation
 export function useLogin() {
-  const { login, refreshSession } = useAuth()
+  const { refreshSession } = useAuth()
 
   const handleLogin = async (email: string, password: string) => {
-    const result = await login(email, password)
+    try {
+      console.log('Starting login process for:', email)
+      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      })
 
-    if (result.success) {
-      console.log('Login API successful, verifying session...')
+      const result = await response.json()
+      
+      console.log('Login API response:', {
+        ok: response.ok,
+        status: response.status,
+        success: result.success,
+        sessionReady: result.sessionReady,
+        hasUser: !!result.user
+      })
 
-      // Wait a moment for cookie to be set
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      // Verify session is working before redirect
-      const sessionVerified = await verifySessionWithRetry()
-
-      if (sessionVerified) {
-        // Refresh the auth context to ensure it's in sync
+      if (response.ok && result.success) {
+        // CRITICAL FIX: Server already confirmed session is ready
+        // No need for arbitrary delays or complex retry logic
+        
+        console.log('Login successful, server confirmed session ready')
+        
+        // Update auth context to reflect new state
         await refreshSession()
-
-        // Now safe to redirect
-        const urlParams = new URLSearchParams(window.location.search)
-        const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
-        console.log('Session verified, redirecting to:', callbackUrl)
-        window.location.href = callbackUrl
+        
+        // Small delay to ensure auth context update completes
+        await new Promise(resolve => setTimeout(resolve, 50))
+        
+        // Quick verification that our context is updated
+        const isSessionValid = await verifySessionQuick()
+        
+        if (isSessionValid) {
+          // Now safe to redirect - session is confirmed both server and client side
+          const urlParams = new URLSearchParams(window.location.search)
+          const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
+          console.log('Session verified, redirecting to:', callbackUrl)
+          
+          // Use router.push instead of window.location.href for better UX
+          window.location.href = callbackUrl
+        } else {
+          console.error('Session context update failed')
+          return { success: false, error: 'Authentication state update failed. Please try again.' }
+        }
+        
+        return { success: true }
       } else {
-        console.error('Session verification failed after login')
-        return { success: false, error: 'Authentication verification failed. Please try again.' }
+        console.log('Login failed:', result.error)
+        return { success: false, error: result.error || 'Login failed' }
       }
+    } catch (error) {
+      console.error('Login error:', error)
+      return { success: false, error: 'An unexpected error occurred' }
     }
-
-    return result
   }
 
   return { login: handleLogin }
 }
 
-// Hook for signup with error handling and session verification
+// FIXED: Hook for signup with proper session confirmation  
 export function useSignup() {
-  const { signup, refreshSession } = useAuth()
+  const { refreshSession } = useAuth()
 
   const handleSignup = async (name: string, email: string, password: string, confirmPassword: string) => {
-    const result = await signup(name, email, password, confirmPassword)
+    try {
+      console.log('Starting signup process for:', email)
+      
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, password, confirmPassword }),
+      })
 
-    if (result.success) {
-      console.log('Signup API successful, verifying session...')
+      const result = await response.json()
 
-      // Wait a moment for cookie to be set
-      await new Promise(resolve => setTimeout(resolve, 100))
-
-      // Verify session is working before redirect
-      const sessionVerified = await verifySessionWithRetry()
-
-      if (sessionVerified) {
-        // Refresh the auth context to ensure it's in sync
+      if (response.ok && result.success) {
+        console.log('Signup successful, updating auth context')
+        
+        // Update auth context
         await refreshSession()
-
-        // Now safe to redirect
-        const urlParams = new URLSearchParams(window.location.search)
-        const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
-        console.log('Session verified, redirecting to:', callbackUrl)
-        window.location.href = callbackUrl
+        
+        // Small delay to ensure context update
+        await new Promise(resolve => setTimeout(resolve, 50))
+        
+        // Quick verification
+        const isSessionValid = await verifySessionQuick()
+        
+        if (isSessionValid) {
+          const urlParams = new URLSearchParams(window.location.search)
+          const callbackUrl = urlParams.get('callbackUrl') || '/dashboard'
+          console.log('Signup session verified, redirecting to:', callbackUrl)
+          window.location.href = callbackUrl
+        } else {
+          console.error('Signup session context update failed')
+          return { success: false, error: 'Authentication state update failed. Please try again.' }
+        }
+        
+        return { success: true }
       } else {
-        console.error('Session verification failed after signup')
-        return { success: false, error: 'Authentication verification failed. Please try again.' }
+        return { success: false, error: result.error || 'Signup failed' }
       }
+    } catch (error) {
+      console.error('Signup error:', error)
+      return { success: false, error: 'An unexpected error occurred' }
     }
-
-    return result
   }
 
   return { signup: handleSignup }

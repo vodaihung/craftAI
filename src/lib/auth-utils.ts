@@ -11,8 +11,8 @@ export interface SessionVerificationResult {
   attempts: number
 }
 
-// Verify session with detailed debugging information
-export async function verifySessionDetailed(maxRetries: number = 3): Promise<SessionVerificationResult> {
+// SIMPLIFIED: Single session verification without complex retry logic
+export async function verifySessionDetailed(maxRetries: number = 1): Promise<SessionVerificationResult> {
   let attempts = 0
   let lastError: string | undefined
 
@@ -70,8 +70,9 @@ export async function verifySessionDetailed(maxRetries: number = 3): Promise<Ses
       console.error(`Session verification attempt ${attempt} failed:`, error)
     }
 
+    // SIMPLIFIED: Only retry if maxRetries > 1 and with shorter delay
     if (attempt < maxRetries) {
-      const delay = 300 * attempt // Increasing delay
+      const delay = 200 // Fixed 200ms delay instead of exponential backoff
       console.log(`Retrying session verification in ${delay}ms...`)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
@@ -128,8 +129,8 @@ export async function getAuthDebugInfo(): Promise<any> {
   }
 }
 
-// Wait for authentication to be ready
-export async function waitForAuth(maxWaitTime: number = 5000): Promise<boolean> {
+// SIMPLIFIED: Wait for authentication to be ready (shorter timeout)
+export async function waitForAuth(maxWaitTime: number = 2000): Promise<boolean> {
   const startTime = Date.now()
   
   while (Date.now() - startTime < maxWaitTime) {

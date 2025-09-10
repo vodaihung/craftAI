@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   const authTokenValue = request.cookies.get('auth-token')?.value
 
   // Enhanced logging for debugging authentication issues
-  console.log('Middleware authentication check:', {
+  const logData = {
     pathname,
     hasAuthToken,
     tokenLength: authTokenValue?.length || 0,
@@ -25,8 +25,17 @@ export async function middleware(request: NextRequest) {
     sessionUserId: session?.userId || 'none',
     userAgent: request.headers.get('user-agent')?.substring(0, 50),
     timestamp: new Date().toISOString(),
-    isProduction
-  })
+    isProduction,
+    // NEW: Add more debugging info
+    referer: request.headers.get('referer'),
+    host: request.headers.get('host'),
+    origin: request.headers.get('origin')
+  }
+
+  // Always log in development, limited logging in production
+  if (!isProduction || !session) {
+    console.log('Middleware authentication check:', logData)
+  }
 
   // Handle protected routes
   if (isProtectedRoute(pathname)) {
@@ -35,10 +44,25 @@ export async function middleware(request: NextRequest) {
         pathname,
         hasAuthToken,
         tokenLength: authTokenValue?.length || 0,
-        reason: hasAuthToken ? 'Token present but session invalid' : 'No auth token'
+        reason: hasAuthToken ? 'Token present but session invalid' : 'No auth token',
+        referer: request.headers.get('referer')
       })
 
       // Redirect to signin with callback URL
+      const signInUrl = new URL('/auth/signin', request.url)
+      signInUrl.searchParams.set('callbackUrl', request.url)
+      return NextResponse.redirect(signInUrl)
+    }
+
+    // ENHANCED: Additional session validation
+    if (session.exp && session.exp < Math.floor(Date.now() / 1000)) {
+      console.log('Redirecting to signin - session expired:', {
+        pathname,
+        userId: session.userId,
+        exp: session.exp,
+        now: Math.floor(Date.now() / 1000)
+      })
+
       const signInUrl = new URL('/auth/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', request.url)
       return NextResponse.redirect(signInUrl)
@@ -57,11 +81,13 @@ export async function middleware(request: NextRequest) {
   // Handle auth routes (signin, signup)
   if (isAuthRoute(pathname)) {
     if (session) {
-      // User is already authenticated, redirect to dashboard
+      // User is already authenticated, redirect to dashboard or callback
       const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/dashboard'
-      if (isProduction) {
-        console.log('Redirecting authenticated user to dashboard:', callbackUrl)
-      }
+      console.log('Redirecting authenticated user from auth page:', {
+        pathname,
+        userId: session.userId,
+        redirectTo: callbackUrl
+      })
       return NextResponse.redirect(new URL(callbackUrl, request.url))
     }
 

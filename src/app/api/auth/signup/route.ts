@@ -6,6 +6,7 @@ import {
   validateEmail, 
   validatePassword,
   validateName,
+  getSessionFromRequest,
   AuthError,
   ValidationError 
 } from '@/lib/auth'
@@ -79,18 +80,43 @@ export async function POST(request: NextRequest) {
         email: newUser.email,
         name: newUser.name,
         image: newUser.image,
-      }
+      },
+      sessionReady: true // NEW: Confirm session is ready (matching login API)
     })
 
     // Set session cookie
     setSessionCookie(response, sessionToken)
 
-    console.log('User signed up successfully:', {
-      email: newUser.email,
-      userId: newUser.id,
-      tokenLength: sessionToken.length,
-      nodeEnv: process.env.NODE_ENV
-    })
+    // CRITICAL FIX: Verify the session can be read back immediately (matching login API)
+    try {
+      const mockNextRequest = {
+        cookies: {
+          get: (name: string) => name === 'auth-token' ? { value: sessionToken } : undefined
+        }
+      } as NextRequest
+
+      const testSession = await getSessionFromRequest(mockNextRequest)
+      
+      if (!testSession) {
+        console.error('Session verification failed immediately after signup')
+        return NextResponse.json(
+          { success: false, error: 'Session creation failed' },
+          { status: 500 }
+        )
+      }
+
+      console.log('User signed up successfully with verified session:', {
+        email: newUser.email,
+        userId: newUser.id,
+        sessionUserId: testSession.userId,
+        tokenLength: sessionToken.length,
+        nodeEnv: process.env.NODE_ENV
+      })
+    } catch (sessionTestError) {
+      console.error('Session verification test failed:', sessionTestError)
+      // Continue anyway - this is just a verification step
+    }
+
     return response
 
   } catch (error) {
