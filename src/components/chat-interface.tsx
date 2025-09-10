@@ -2,10 +2,87 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Send, Bot, User } from 'lucide-react'
 import type { FormSchema } from '@/lib/db/schema'
+import { ReactElement } from 'react'
+
+// Component to format chat messages with proper styling
+function FormattedMessage({ content }: { content: string }) {
+  const formatText = (text: string) => {
+    const lines = text.split('\n')
+    const elements: ReactElement[] = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+
+      if (!line) {
+        elements.push(<br key={i} />)
+        continue
+      }
+
+      // Headers (## or ###)
+      if (line.startsWith('### ')) {
+        elements.push(
+          <h4 key={i} className="font-semibold text-sm mt-3 mb-1 first:mt-0">
+            {line.substring(4)}
+          </h4>
+        )
+      } else if (line.startsWith('## ')) {
+        elements.push(
+          <h3 key={i} className="font-semibold text-base mt-4 mb-2 first:mt-0">
+            {line.substring(3)}
+          </h3>
+        )
+      }
+      // Bullet points (• or -)
+      else if (line.startsWith('• ') || line.startsWith('- ')) {
+        elements.push(
+          <div key={i} className="flex items-start space-x-2 my-1">
+            <span className="text-primary mt-0.5">•</span>
+            <span className="flex-1">{formatInlineText(line.substring(2))}</span>
+          </div>
+        )
+      }
+      // Bold text patterns (**text**)
+      else if (line.includes('**')) {
+        elements.push(
+          <p key={i} className="my-1">
+            {formatInlineText(line)}
+          </p>
+        )
+      }
+      // Regular paragraphs
+      else {
+        elements.push(
+          <p key={i} className="my-1">
+            {formatInlineText(line)}
+          </p>
+        )
+      }
+    }
+
+    return elements
+  }
+
+  const formatInlineText = (text: string) => {
+    // Handle **bold** text
+    const parts = text.split(/(\*\*[^*]+\*\*)/g)
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={index} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        )
+      }
+      return part
+    })
+  }
+
+  return <div className="text-sm space-y-1">{formatText(content)}</div>
+}
 
 interface Message {
   id: string
@@ -128,8 +205,14 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
     return actions.slice(0, 6)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submitForm()
+    }
+  }
+
+  const submitForm = async () => {
     if (!input.trim() || isLoading) return
 
     const userMessage: Message = {
@@ -143,6 +226,16 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
     setInput('')
     setIsLoading(true)
 
+    // Continue with the existing message processing logic
+    await processUserMessage(userMessage)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await submitForm()
+  }
+
+  const processUserMessage = async (userMessage: Message) => {
     try {
       const isAnalysis = isAnalysisRequest(userMessage.content)
 
@@ -387,7 +480,7 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted text-muted-foreground'
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <FormattedMessage content={message.content} />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {message.timestamp.toLocaleTimeString()}
@@ -435,12 +528,14 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="flex space-x-2">
-          <Input
+          <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Describe the form you want to create..."
+            onKeyDown={handleKeyDown}
+            placeholder="Describe the form you want to create... (Shift+Enter for new line)"
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+            rows={1}
           />
           <Button type="submit" disabled={isLoading || !input.trim()}>
             {isLoading ? (
