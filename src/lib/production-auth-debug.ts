@@ -4,6 +4,8 @@ export function logProductionAuthEnvironment() {
     return
   }
 
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_URL
+
   console.log('PRODUCTION: Authentication Environment Check:', {
     nodeEnv: process.env.NODE_ENV,
     hasJwtSecret: !!process.env.JWT_SECRET,
@@ -12,6 +14,10 @@ export function logProductionAuthEnvironment() {
     nextAuthSecretLength: process.env.NEXTAUTH_SECRET?.length || 0,
     cookieDomain: process.env.COOKIE_DOMAIN || 'not set',
     forceHttps: process.env.FORCE_HTTPS || 'not set',
+    // VERCEL-specific debugging
+    isVercel,
+    vercelUrl: process.env.VERCEL_URL || 'not set',
+    vercelEnv: process.env.VERCEL_ENV || 'not set',
     timestamp: new Date().toISOString()
   })
 
@@ -40,7 +46,8 @@ export function logProductionCookieDebug(request: Request) {
 
   const cookieHeader = request.headers.get('cookie')
   const authToken = cookieHeader?.split(';').find(c => c.trim().startsWith('auth-token='))
-  
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_URL
+
   console.log('PRODUCTION: Cookie Debug:', {
     hasCookieHeader: !!cookieHeader,
     cookieHeaderLength: cookieHeader?.length || 0,
@@ -49,6 +56,14 @@ export function logProductionCookieDebug(request: Request) {
     userAgent: request.headers.get('user-agent')?.substring(0, 50),
     referer: request.headers.get('referer'),
     host: request.headers.get('host'),
+    // VERCEL-specific debugging
+    isVercel,
+    vercelUrl: process.env.VERCEL_URL,
+    vercelEnv: process.env.VERCEL_ENV,
+    // Additional headers for debugging
+    origin: request.headers.get('origin'),
+    xForwardedFor: request.headers.get('x-forwarded-for'),
+    xForwardedProto: request.headers.get('x-forwarded-proto'),
     timestamp: new Date().toISOString()
   })
 }

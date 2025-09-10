@@ -240,17 +240,20 @@ export async function getSessionFromRequest(request: NextRequest): Promise<Sessi
 export function getSessionCookie(token: string) {
   const isProduction = process.env.NODE_ENV === 'production'
   const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
-  
+
+  // VERCEL FIX: Detect if we're on Vercel deployment
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_URL
+
   const cookie = {
     name: COOKIE_NAME,
     value: token,
     httpOnly: true,
     secure: isSecureContext, // ENHANCED: More flexible secure detection
-    sameSite: 'lax' as const,
+    sameSite: isVercel ? 'none' as const : 'lax' as const, // VERCEL FIX: Use 'none' for Vercel deployments
     maxAge: SESSION_DURATION / 1000, // Convert to seconds
     path: '/',
-    // ENHANCED: Production domain handling
-    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
+    // VERCEL FIX: Don't set domain for Vercel deployments (let browser handle it)
+    ...(isProduction && !isVercel && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
   // ENHANCED: Production-specific logging
@@ -262,7 +265,9 @@ export function getSessionCookie(token: string) {
       domain: cookie.domain || 'not set',
       maxAge: cookie.maxAge,
       isProduction,
+      isVercel,
       forceHttps: process.env.FORCE_HTTPS,
+      vercelUrl: process.env.VERCEL_URL,
       tokenLength: token.length
     })
   }
@@ -273,17 +278,20 @@ export function getSessionCookie(token: string) {
 export function getExpiredSessionCookie() {
   const isProduction = process.env.NODE_ENV === 'production'
   const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
-  
+
+  // VERCEL FIX: Detect if we're on Vercel deployment
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_URL
+
   return {
     name: COOKIE_NAME,
     value: '',
     httpOnly: true,
     secure: isSecureContext, // ENHANCED: Consistent secure detection
-    sameSite: 'lax' as const,
+    sameSite: isVercel ? 'none' as const : 'lax' as const, // VERCEL FIX: Use 'none' for Vercel deployments
     maxAge: 0,
     path: '/',
-    // ENHANCED: Production domain handling for expired cookies
-    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
+    // VERCEL FIX: Don't set domain for Vercel deployments (let browser handle it)
+    ...(isProduction && !isVercel && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 }
 

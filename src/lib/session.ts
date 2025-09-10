@@ -36,19 +36,22 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
   const isProduction = process.env.NODE_ENV === 'production'
   const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds (matching auth.ts)
 
-  // PRODUCTION FIX: Use same cookie configuration as auth.ts for consistency
+  // VERCEL PRODUCTION FIX: Enhanced secure context detection
   const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
+
+  // VERCEL FIX: Detect if we're on Vercel deployment
+  const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_URL
 
   const cookie = {
     name: 'auth-token',
     value: token,
     httpOnly: true,
     secure: isSecureContext, // PRODUCTION FIX: Match auth.ts secure detection
-    sameSite: 'lax' as const,
+    sameSite: isVercel ? 'none' as const : 'lax' as const, // VERCEL FIX: Use 'none' for Vercel deployments
     maxAge: SESSION_DURATION / 1000, // Convert to seconds (matching auth.ts calculation)
     path: '/',
-    // PRODUCTION FIX: Match auth.ts domain handling
-    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
+    // VERCEL FIX: Don't set domain for Vercel deployments (let browser handle it)
+    ...(isProduction && !isVercel && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
   // ENHANCED: Production-specific logging
@@ -62,9 +65,11 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
       tokenLength: token.length,
       isProduction,
       isSecureContext,
+      isVercel,
       // PRODUCTION DEBUG INFO
       forceHttps: process.env.FORCE_HTTPS,
       cookieDomain: process.env.COOKIE_DOMAIN,
+      vercelUrl: process.env.VERCEL_URL,
       nodeEnv: process.env.NODE_ENV,
       // PRODUCTION: Additional debugging for cookie issues
       userAgent: 'server-side',
