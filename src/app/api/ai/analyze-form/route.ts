@@ -3,7 +3,6 @@ import { generateObject } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { FormSchemaSchema } from '@/lib/db/schema'
-import { requireAuth } from '@/lib/session'
 
 // Analysis result schema
 const FormAnalysisSchema = z.object({
@@ -34,16 +33,15 @@ const AnalyzeFormRequestSchema = z.object({
     completionRate: z.number().optional(),
     averageTimeToComplete: z.number().optional(),
     commonDropOffPoints: z.array(z.string()).optional(),
-    userQuestion: z.string().optional()
+    userQuestion: z.string().optional(),
+    isModification: z.boolean().optional(),
+    previousFieldCount: z.number().optional(),
+    currentFieldCount: z.number().optional()
   }).optional()
 })
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await requireAuth()
-    const userId = session.userId
-
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({
@@ -60,6 +58,8 @@ export async function POST(request: NextRequest) {
 
     // Build analysis prompt
     const systemPrompt = `You are an expert UX researcher and form optimization specialist. Your job is to analyze form schemas and provide actionable insights to improve user experience and conversion rates.
+
+CRITICAL: Keep ALL recommendation descriptions ULTRA SHORT - maximum 1 sentence, under 40 characters when possible. Be extremely concise and direct.
 
 Analyze the provided form considering:
 
@@ -100,15 +100,24 @@ Provide specific, actionable recommendations with clear explanations of expected
 **Form Schema:**
 ${JSON.stringify(formSchema, null, 2)}
 
-**Performance Context:**
+**Context:**
+${context.isModification ? `- This is a form modification (${context.previousFieldCount || 0} → ${context.currentFieldCount || 0} fields)` : '- This is a newly created form'}
 ${context.responseCount ? `- Response Count: ${context.responseCount}` : ''}
 ${context.completionRate ? `- Completion Rate: ${context.completionRate}%` : ''}
 ${context.averageTimeToComplete ? `- Average Completion Time: ${context.averageTimeToComplete} seconds` : ''}
 ${context.commonDropOffPoints?.length ? `- Common Drop-off Points: ${context.commonDropOffPoints.join(', ')}` : ''}
 
-${context.userQuestion ? `**Specific Question:** ${context.userQuestion}` : ''}
+${context.userQuestion ? `**User Request:** ${context.userQuestion}` : ''}
 
-Provide a comprehensive analysis with specific, actionable recommendations.`
+**Instructions:**
+- Provide a brief, conversational summary (1-2 sentences) that acknowledges what was done
+- Keep ALL recommendations ULTRA SHORT - maximum 1 sentence, under 40 characters when possible
+- Focus on the top 3 most impactful suggestions only
+- Use extremely simple, direct language - no explanations
+- Prioritize quick wins over complex changes
+- Consider the context of whether this is a new form or modification
+
+Provide analysis with ultra-concise, actionable recommendations. Think Twitter-length descriptions.`
 
     // Generate analysis using AI
     const { object: analysis } = await generateObject({

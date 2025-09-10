@@ -30,7 +30,7 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
     {
       id: '1',
       role: 'assistant',
-      content: 'Hi! I\'m your intelligent form assistant. I can help you:\n\n🔨 **Create & Modify Forms:**\n• "Create a contact form with name, email, and message fields"\n• "Add a phone number field" or "Add file upload for attachments"\n• "Remove the email field" or "Make the name field optional"\n\n🔍 **Analyze & Optimize:**\n• "Why isn\'t my form getting responses?"\n• "How can I improve my form\'s conversion rate?"\n• "Analyze my form for UX issues"\n\n💡 **Get Suggestions:**\n• "What fields should I add to my survey?"\n• "How can I make this form more user-friendly?"\n\nWhat would you like to work on today?',
+      content: 'Hi! I\'m your intelligent form assistant. \nWhat would you like to work on today?',
       timestamp: new Date()
     }
   ])
@@ -232,21 +232,100 @@ export function ChatInterface({ onFormGenerated, currentFormSchema, formAnalytic
         const result = await response.json()
 
         if (result.success) {
-          const isModification = currentFormSchema !== null
-          const fieldCount = result.formSchema.fields.length
-          const previousFieldCount = currentFormSchema?.fields.length || 0
-
+          // Generate AI-powered response content with suggestions
           let responseContent = ''
-          if (isModification) {
-            if (fieldCount > previousFieldCount) {
-              responseContent = `Perfect! I've added the new field(s) to your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). You can see the updated preview on the right.`
-            } else if (fieldCount < previousFieldCount) {
-              responseContent = `Done! I've removed the field(s) from your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). Check the updated preview on the right.`
+
+          try {
+            // Call the analyze-form API to get intelligent suggestions
+            const analysisResponse = await fetch('/api/ai/analyze-form', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                formSchema: result.formSchema,
+                context: {
+                  responseCount: formAnalytics?.responseCount || 0,
+                  completionRate: formAnalytics?.completionRate || 0,
+                  averageTimeToComplete: formAnalytics?.averageTimeToComplete,
+                  userQuestion: userMessage.content,
+                  isModification: currentFormSchema !== null,
+                  previousFieldCount: currentFormSchema?.fields.length || 0,
+                  currentFieldCount: result.formSchema.fields.length
+                }
+              })
+            })
+
+            const analysisResult = await analysisResponse.json()
+
+            if (analysisResult.success && analysisResult.analysis) {
+              const analysis = analysisResult.analysis
+              const isModification = currentFormSchema !== null
+              const fieldCount = result.formSchema.fields.length
+              const previousFieldCount = currentFormSchema?.fields.length || 0
+
+              // Create contextual response based on the action performed
+              let actionDescription = ''
+              if (isModification) {
+                if (fieldCount > previousFieldCount) {
+                  actionDescription = `Perfect! I've added ${fieldCount - previousFieldCount} new field(s) to your "${result.formSchema.title}". The form now has ${fieldCount} fields.`
+                } else if (fieldCount < previousFieldCount) {
+                  actionDescription = `Done! I've removed ${previousFieldCount - fieldCount} field(s) from your "${result.formSchema.title}". The form now has ${fieldCount} fields.`
+                } else {
+                  actionDescription = `Great! I've updated your "${result.formSchema.title}" form with your requested changes.`
+                }
+              } else {
+                actionDescription = `Excellent! I've created a "${result.formSchema.title}" for you with ${fieldCount} fields.`
+              }
+
+              // Combine action description with AI suggestions
+              responseContent = `${actionDescription}\n\n${analysis.summary}`
+
+              // Add top recommendations if available
+              if (analysis.recommendations && analysis.recommendations.length > 0) {
+                responseContent += `\n\n**💡 Quick wins:**\n`
+                analysis.recommendations.slice(0, 2).forEach((recommendation: { title: string; description: string; priority: string }) => {
+                  responseContent += `• ${recommendation.description}\n`
+                })
+              }
+
+              responseContent += `\nYou can see the updated preview on the right. Would you like me to make any adjustments?`
             } else {
-              responseContent = `Great! I've updated your "${result.formSchema.title}" form. The form still has ${fieldCount} fields but with your requested changes. See the updated preview on the right.`
+              // Fallback to basic response if analysis fails
+              const isModification = currentFormSchema !== null
+              const fieldCount = result.formSchema.fields.length
+              const previousFieldCount = currentFormSchema?.fields.length || 0
+
+              if (isModification) {
+                if (fieldCount > previousFieldCount) {
+                  responseContent = `Perfect! I've added the new field(s) to your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). You can see the updated preview on the right.`
+                } else if (fieldCount < previousFieldCount) {
+                  responseContent = `Done! I've removed the field(s) from your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). Check the updated preview on the right.`
+                } else {
+                  responseContent = `Great! I've updated your "${result.formSchema.title}" form. The form still has ${fieldCount} fields but with your requested changes. See the updated preview on the right.`
+                }
+              } else {
+                responseContent = `Great! I've created a "${result.formSchema.title}" for you. You can see the preview on the right. The form includes ${fieldCount} fields. Would you like me to add, remove, or modify anything?`
+              }
             }
-          } else {
-            responseContent = `Great! I've created a "${result.formSchema.title}" for you. You can see the preview on the right. The form includes ${fieldCount} fields. Would you like me to add, remove, or modify anything?`
+          } catch (analysisError) {
+            console.error('Failed to get AI analysis:', analysisError)
+            // Fallback to basic response if analysis fails
+            const isModification = currentFormSchema !== null
+            const fieldCount = result.formSchema.fields.length
+            const previousFieldCount = currentFormSchema?.fields.length || 0
+
+            if (isModification) {
+              if (fieldCount > previousFieldCount) {
+                responseContent = `Perfect! I've added the new field(s) to your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). You can see the updated preview on the right.`
+              } else if (fieldCount < previousFieldCount) {
+                responseContent = `Done! I've removed the field(s) from your "${result.formSchema.title}". The form now has ${fieldCount} fields (was ${previousFieldCount}). Check the updated preview on the right.`
+              } else {
+                responseContent = `Great! I've updated your "${result.formSchema.title}" form. The form still has ${fieldCount} fields but with your requested changes. See the updated preview on the right.`
+              }
+            } else {
+              responseContent = `Great! I've created a "${result.formSchema.title}" for you. You can see the preview on the right. The form includes ${fieldCount} fields. Would you like me to add, remove, or modify anything?`
+            }
           }
 
           const assistantMessage: Message = {

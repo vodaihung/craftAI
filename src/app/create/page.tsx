@@ -209,7 +209,7 @@ export default function CreateFormPage() {
           <TemplateSelector onTemplateSelect={handleTemplateSelect} />
         ) : (
           /* Form Builder */
-          <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
+          <div className="grid lg:grid-cols-2 gap-6">
             {/* Chat Interface */}
             <div className="space-y-4">
               <Card>
@@ -237,25 +237,29 @@ export default function CreateFormPage() {
               </ChatErrorBoundary>
             </div>
 
-            {/* Form Preview */}
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">📝</span>
-                    </div>
-                    <span>Live Preview</span>
-                  </CardTitle>
-                </CardHeader>
-              </Card>
+            {/* Form Preview - Sticky */}
+            <div className="relative">
+              <div className="sticky top-4 space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-sm">📝</span>
+                      </div>
+                      <span>Live Preview</span>
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
 
-              <FormErrorBoundary>
-                <FormPreview
-                  formSchema={currentFormSchema}
-                  className="flex-1"
-                />
-              </FormErrorBoundary>
+                <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
+                  <FormErrorBoundary>
+                    <FormPreview
+                      formSchema={currentFormSchema}
+                      className=""
+                    />
+                  </FormErrorBoundary>
+                </div>
+              </div>
             </div>
           </div>
         )}

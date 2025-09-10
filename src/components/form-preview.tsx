@@ -27,7 +27,7 @@ export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
 
   if (!formSchema) {
     return (
-      <Card className={`h-full flex items-center justify-center ${className}`}>
+      <Card className={`flex items-center justify-center ${className}`}>
         <CardContent className="text-center p-8">
           <div className="text-muted-foreground">
             <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-muted flex items-center justify-center">
@@ -220,7 +220,7 @@ export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
   }
 
   return (
-    <Card className={`h-full ${className}`}>
+    <Card className={className}>
       <CardHeader>
         <CardTitle>{formSchema.title}</CardTitle>
         {formSchema.description && (
