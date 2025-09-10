@@ -98,11 +98,9 @@ export default async function PublicFormPage({ params }: PublicFormPageProps) {
           <div className="text-center mt-8 text-sm text-muted-foreground">
             <p>
               This form was created with{' '}
-              <a 
-                href="/" 
+              <a
+                href="/"
                 className="text-primary hover:underline font-medium"
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 FormCraft AI
               </a>

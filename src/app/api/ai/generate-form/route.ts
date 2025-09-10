@@ -45,6 +45,8 @@ Guidelines for modifications:
 - When removing fields, only remove the specifically mentioned fields
 - When modifying fields, only change the requested properties
 - Keep the same form title and description unless explicitly asked to change them
+- When asked to change the title, update ONLY the title field, keep all other properties the same
+- Detect title change requests from phrases like "change title to", "rename to", "call it", etc.
 - Maintain field IDs for existing fields to preserve form data
 - For new fields, generate unique IDs that don't conflict with existing ones
 
@@ -53,6 +55,9 @@ User request types:
 - "Remove [field]" → Remove only the specified field(s)
 - "Change [field]" → Modify only the specified field properties
 - "Make [field] required/optional" → Update only the required property
+- "Change the form title to [title]" → Update only the form title
+- "Rename the form to [title]" → Update only the form title
+- "Call the form [title]" → Update only the form title
 
 Field types available:
 - text: Single line text input
