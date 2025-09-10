@@ -1,14 +1,14 @@
 'use client'
 
 import React, { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
-import { useLogin } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 
 // Provider interface removed - only using credentials authentication
 
@@ -19,9 +19,10 @@ function SignInContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState('')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const error = searchParams.get('error')
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-  const { login } = useLogin()
+  const { login } = useAuth()
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,13 +38,15 @@ function SignInContent() {
     try {
       const result = await login(email, password)
 
-      if (!result.success) {
+      if (result.success) {
+        console.log('✅ Login successful, redirecting to dashboard...')
+        router.push(callbackUrl)
+      } else {
         setAuthError(result.error || 'Login failed')
         setIsLoading(false)
       }
-      // If successful, the useLogin hook will handle the redirect
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ Login error:', error)
       setAuthError('An unexpected error occurred')
       setIsLoading(false)
     }

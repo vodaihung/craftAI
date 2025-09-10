@@ -11,13 +11,12 @@ import {
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
-import { useSession, useLogout } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 
 export function UserMenu() {
-  const { data: session, status, update } = useSession()
+  const { user, status, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { logout } = useLogout()
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -80,25 +79,25 @@ export function UserMenu() {
         className="flex items-center space-x-2 h-auto p-2"
         disabled={isLoggingOut}
       >
-        {session.user?.image ? (
+        {user?.image ? (
           <Image
-            src={session.user.image}
-            alt={session.user.name || 'User'}
+            src={user.image}
+            alt={user.name || 'User'}
             width={32}
             height={32}
             className="w-8 h-8 rounded-full"
           />
         ) : (
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
-            {session.user?.name?.[0] || session.user?.email?.[0] || 'U'}
+            {user?.name?.[0] || user?.email?.[0] || 'U'}
           </div>
         )}
         <div className="flex flex-col items-start">
           <span className="text-sm font-medium text-foreground">
-            {session.user?.name || 'User'}
+            {user?.name || 'User'}
           </span>
           <span className="text-xs text-muted-foreground">
-            {session.user?.email}
+            {user?.email}
           </span>
         </div>
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -109,8 +108,8 @@ export function UserMenu() {
           <div className="p-1">
             {/* User Info */}
             <div className="px-3 py-2 text-sm border-b border-border">
-              <div className="font-medium">{session.user?.name || 'User'}</div>
-              <div className="text-muted-foreground">{session.user?.email}</div>
+              <div className="font-medium">{user?.name || 'User'}</div>
+              <div className="text-muted-foreground">{user?.email}</div>
             </div>
             
             {/* Menu Items */}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSession } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { ChatInterface } from '@/components/chat-interface'
 import { FormPreview } from '@/components/form-preview'
@@ -17,7 +17,7 @@ interface EditFormPageProps {
 }
 
 export default function EditFormPage({ params }: EditFormPageProps) {
-  const { data: session, status } = useSession()
+  const { user, status } = useAuth()
   const router = useRouter()
   const [formId, setFormId] = useState<string | null>(null)
   const [currentFormSchema, setCurrentFormSchema] = useState<FormSchema | null>(null)

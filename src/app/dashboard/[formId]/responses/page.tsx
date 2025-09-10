@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,7 +45,7 @@ interface ResponsesPageProps {
 }
 
 export default function ResponsesPage({ params }: ResponsesPageProps) {
-  const { data: session, status } = useSession()
+  const { user, status } = useAuth()
   const router = useRouter()
   const [formData, setFormData] = useState<FormWithResponses | null>(null)
   const [isLoading, setIsLoading] = useState(true)

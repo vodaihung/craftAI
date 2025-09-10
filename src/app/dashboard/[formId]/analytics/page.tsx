@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { FormAnalytics } from '@/components/form-analytics'
@@ -21,7 +21,7 @@ interface FormData {
 }
 
 export default function FormAnalyticsPage({ params }: AnalyticsPageProps) {
-  const { data: session, status } = useSession()
+  const { user, status } = useAuth()
   const router = useRouter()
   const [formData, setFormData] = useState<FormData | null>(null)
   const [isLoading, setIsLoading] = useState(true)

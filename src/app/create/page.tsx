@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { ChatInterface } from '@/components/chat-interface'
 import { FormPreview } from '@/components/form-preview'
@@ -15,7 +15,7 @@ import Link from 'next/link'
 import type { FormSchema } from '@/lib/db/schema'
 
 export default function CreateFormPage() {
-  const { data: session, status } = useSession()
+  const { user, status } = useAuth()
   const router = useRouter()
   const [currentFormSchema, setCurrentFormSchema] = useState<FormSchema | null>(null)
   const [isSaving, setIsSaving] = useState(false)

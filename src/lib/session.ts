@@ -26,20 +26,19 @@ export async function requireAuthFromRequest(request: NextRequest): Promise<Sess
 export function setSessionCookie(response: NextResponse, token: string): NextResponse {
   const isProduction = process.env.NODE_ENV === 'production'
   const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds (matching auth.ts)
-  
-  // CRITICAL: Detect if we're behind a proxy (common in production)
-  const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
-  
+
+  // PRODUCTION FIX: More permissive cookie configuration
   const cookie = {
     name: 'auth-token',
     value: token,
     httpOnly: true,
-    secure: isSecureContext, // FIXED: More flexible secure cookie detection
+    // PRODUCTION FIX: Always secure in production, flexible in development
+    secure: isProduction,
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds (matching auth.ts calculation)
     path: '/',
-    // ENHANCED: Production domain handling
-    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
+    // PRODUCTION FIX: Only set domain if explicitly configured
+    ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
   // ENHANCED: Production-specific logging

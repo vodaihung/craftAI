@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useSession } from '@/hooks/use-auth'
+import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,7 +23,7 @@ interface FormWithStats extends Form {
 }
 
 export default function DashboardPage() {
-  const { status } = useSession()
+  const { status } = useAuth()
   const router = useRouter()
   const [forms, setForms] = useState<FormWithStats[]>([])
   const [isLoading, setIsLoading] = useState(true)

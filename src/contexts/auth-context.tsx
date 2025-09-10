@@ -97,67 +97,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
 
       if (response.ok && data.success) {
-        console.log('Login successful, waiting for session synchronization...')
+        console.log('✅ Login successful! Setting user state and redirecting...')
 
-        // CRITICAL FIX: Wait for cookie to be properly set before updating state
-        // This prevents race conditions in production
-        await new Promise(resolve => setTimeout(resolve, 100))
+        // SIMPLIFIED: Trust the login API response and set user immediately
+        setUser(data.user)
+        setStatus('authenticated')
 
-        // Verify session is actually available by checking the session endpoint
-        let sessionVerified = false
-        let attempts = 0
-        const maxAttempts = 5
-
-        while (!sessionVerified && attempts < maxAttempts) {
-          try {
-            const sessionResponse = await fetch('/api/auth/session', {
-              method: 'GET',
-              credentials: 'include',
-              cache: 'no-cache',
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-              }
-            })
-
-            if (sessionResponse.ok) {
-              const sessionData = await sessionResponse.json()
-              if (sessionData.success && sessionData.session?.user) {
-                sessionVerified = true
-                console.log('Session verified successfully after login')
-
-                // Update state with verified session data
-                setUser(sessionData.session.user)
-                setStatus('authenticated')
-                break
-              }
-            }
-          } catch (sessionError) {
-            console.warn('Session verification attempt failed:', sessionError)
-          }
-
-          attempts++
-          if (attempts < maxAttempts) {
-            // Wait progressively longer between attempts
-            await new Promise(resolve => setTimeout(resolve, 100 * attempts))
-          }
-        }
-
-        if (!sessionVerified) {
-          console.error('Session verification failed after login - falling back to login response data')
-          // Fallback to login response data if session verification fails
-          setUser(data.user)
-          setStatus('authenticated')
-        }
-
+        console.log('🎉 User authenticated:', data.user.email)
         return { success: true }
       } else {
-        console.log('Login failed:', data.error)
+        console.error('❌ Login API failed:', data.error)
         return { success: false, error: data.error || 'Login failed' }
       }
     } catch (error) {
-      console.error('Login error:', error)
-      return { success: false, error: 'An unexpected error occurred' }
+      console.error('❌ Login error:', error)
+      return {
+        success: false,
+        error: 'An unexpected error occurred during login. Please try again.'
+      }
     }
   }, [])
 
@@ -176,15 +133,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        console.log('✅ Signup successful! Setting user state...')
         setUser(data.user)
         setStatus('authenticated')
+        console.log('🎉 User registered and authenticated:', data.user.email)
         return { success: true }
       } else {
+        console.error('❌ Signup failed:', data.error)
         return { success: false, error: data.error || 'Signup failed' }
       }
     } catch (error) {
-      console.error('Signup error:', error)
-      return { success: false, error: 'An unexpected error occurred' }
+      console.error('❌ Signup error:', error)
+      return { success: false, error: 'An unexpected error occurred during signup' }
     }
   }, [])
 
