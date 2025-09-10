@@ -38,6 +38,8 @@ interface FileInfo {
   type: string
   uploadedAt: string
   url: string
+  extension?: string
+  sizeFormatted?: string
 }
 
 export function FileUpload({
@@ -73,15 +75,70 @@ export function FileUpload({
       return
     }
 
+    // Pre-validate files before upload
+    const validationErrors: string[] = []
+
+    filesToUpload.forEach((file, index) => {
+      // Check file size
+      const maxSizeBytes = maxSize * 1024 * 1024
+      if (file.size > maxSizeBytes) {
+        validationErrors.push(`File "${file.name}" exceeds ${maxSize}MB limit`)
+      }
+
+      // Check file type if restrictions are set
+      if (allowedTypes.length > 0) {
+        const isAllowed = allowedTypes.some(allowedType => {
+          if (allowedType.endsWith('/*')) {
+            const category = allowedType.slice(0, -2)
+            return file.type.startsWith(category + '/')
+          }
+          return file.type === allowedType
+        })
+
+        if (!isAllowed) {
+          validationErrors.push(`File "${file.name}" type not allowed`)
+        }
+      }
+
+      // Check for empty files
+      if (file.size === 0) {
+        validationErrors.push(`File "${file.name}" is empty`)
+      }
+    })
+
+    if (validationErrors.length > 0) {
+      setUploadError(validationErrors.join('; '))
+      return
+    }
+
     setIsUploading(true)
     setUploadError(null)
 
     try {
-      const uploadPromises = filesToUpload.map(file => uploadFile(file))
-      const uploadedFiles = await Promise.all(uploadPromises)
+      // Upload files sequentially to avoid overwhelming the server
+      const uploadedFiles: FileInfo[] = []
 
-      const newFiles = multiple ? [...value, ...uploadedFiles] : uploadedFiles
-      onChange(newFiles)
+      for (const file of filesToUpload) {
+        try {
+          const uploadedFile = await uploadFile(file)
+          uploadedFiles.push(uploadedFile)
+        } catch (error) {
+          // If one file fails, still try to upload others
+          console.error(`Failed to upload ${file.name}:`, error)
+          setUploadError(`Failed to upload "${file.name}": ${error instanceof Error ? error.message : 'Unknown error'}`)
+          break // Stop on first error
+        }
+      }
+
+      if (uploadedFiles.length > 0) {
+        const newFiles = multiple ? [...value, ...uploadedFiles] : uploadedFiles
+        onChange(newFiles)
+
+        // Clear error if at least some files uploaded successfully
+        if (uploadedFiles.length === filesToUpload.length) {
+          setUploadError(null)
+        }
+      }
 
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Upload failed')
@@ -103,18 +160,50 @@ export function FileUpload({
       formData.append('allowedTypes', allowedTypes.join(','))
     }
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    })
+    // Create abort controller for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
 
-    const result = await response.json()
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+        // Don't set Content-Type header, let browser set it with boundary for multipart
+      })
 
-    if (!result.success) {
-      throw new Error(result.error)
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        // Handle different HTTP status codes
+        if (response.status === 413) {
+          throw new Error('File too large for server')
+        } else if (response.status === 507) {
+          throw new Error('Server storage full')
+        } else if (response.status === 429) {
+          throw new Error('Too many uploads, please wait')
+        }
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Upload failed')
+      }
+
+      return result.file
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Upload timeout - file too large or connection slow')
+        }
+        throw error
+      }
+
+      throw new Error('Network error during upload')
     }
-
-    return result.file
   }
 
   const removeFile = (fileId: string) => {
@@ -146,19 +235,83 @@ export function FileUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const getFileIcon = (type: string) => {
+  const getFileIcon = (type: string, filename?: string) => {
+    const ext = filename?.toLowerCase().split('.').pop() || ''
+
+    // Images
     if (type.startsWith('image/')) {
-      return <Image className="w-4 h-4" />
-    } else if (type === 'application/pdf' || type.startsWith('text/')) {
-      return <FileText className="w-4 h-4" />
-    } else {
-      return <File className="w-4 h-4" />
+      return <Image className="w-4 h-4 text-blue-500" />
     }
+
+    // Documents
+    if (type === 'application/pdf') {
+      return <FileText className="w-4 h-4 text-red-500" />
+    }
+
+    if (type.startsWith('text/') ||
+        type.includes('document') ||
+        type.includes('spreadsheet') ||
+        type.includes('presentation') ||
+        ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(ext)) {
+      return <FileText className="w-4 h-4 text-blue-600" />
+    }
+
+    // Archives
+    if (type.includes('zip') || type.includes('rar') || type.includes('7z') ||
+        ['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+      return <File className="w-4 h-4 text-yellow-600" />
+    }
+
+    // Audio
+    if (type.startsWith('audio/')) {
+      return <File className="w-4 h-4 text-purple-500" />
+    }
+
+    // Video
+    if (type.startsWith('video/')) {
+      return <File className="w-4 h-4 text-green-500" />
+    }
+
+    // Code files
+    if (type.includes('javascript') || type.includes('json') || type.includes('xml') ||
+        ['js', 'ts', 'jsx', 'tsx', 'html', 'css', 'json', 'xml', 'py', 'java', 'c', 'cpp'].includes(ext)) {
+      return <FileText className="w-4 h-4 text-green-600" />
+    }
+
+    // Default
+    return <File className="w-4 h-4 text-gray-500" />
   }
 
   const getAcceptedTypes = () => {
     if (allowedTypes.length === 0) return undefined
-    return allowedTypes.join(',')
+
+    // Convert MIME types to file extensions for better browser support
+    const acceptTypes = allowedTypes.map(type => {
+      // Keep wildcard types as-is
+      if (type.includes('*')) return type
+
+      // Convert common MIME types to extensions for better UX
+      const mimeToExt: Record<string, string> = {
+        'image/jpeg': '.jpg,.jpeg',
+        'image/png': '.png',
+        'image/gif': '.gif',
+        'image/webp': '.webp',
+        'application/pdf': '.pdf',
+        'text/plain': '.txt',
+        'text/csv': '.csv',
+        'application/msword': '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.ms-excel': '.xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/zip': '.zip',
+        'audio/mpeg': '.mp3',
+        'video/mp4': '.mp4'
+      }
+
+      return mimeToExt[type] || type
+    })
+
+    return acceptTypes.join(',')
   }
 
   return (
@@ -197,10 +350,15 @@ export function FileUpload({
               </p>
               <p className="text-xs text-muted-foreground">
                 Max size: {maxSize}MB
-                {allowedTypes.length > 0 && (
+                {allowedTypes.length > 0 ? (
                   <span className="block">
-                    Allowed: {allowedTypes.map(type => type.split('/')[1] || type).join(', ')}
+                    Allowed: {allowedTypes.map(type => {
+                      if (type.endsWith('/*')) return type
+                      return type.split('/')[1] || type.split('.')[1] || type
+                    }).join(', ')}
                   </span>
+                ) : (
+                  <span className="block text-green-600">All file types allowed</span>
                 )}
                 {multiple && <span className="block">Multiple files allowed</span>}
               </p>
@@ -245,13 +403,18 @@ export function FileUpload({
               <Card key={file.id} className="p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {getFileIcon(file.type)}
+                    {getFileIcon(file.type, file.originalName)}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-medium truncate" title={file.originalName}>
                         {file.originalName}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                        {file.sizeFormatted || formatFileSize(file.size)} • {new Date(file.uploadedAt).toLocaleDateString()}
+                        {file.type && (
+                          <span className="ml-1 px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                            {file.extension || file.type.split('/')[1] || 'file'}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

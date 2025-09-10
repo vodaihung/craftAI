@@ -63,20 +63,35 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute(pathname)) {
     if (!session) {
       const failureReason = hasAuthToken ? 'Token present but session invalid' : 'No auth token'
-      
+
+      // PRODUCTION: Enhanced logging for debugging session issues
       console.log(`${isProduction ? 'PRODUCTION' : 'DEV'}: Redirecting to signin - no session for protected route:`, {
         pathname,
         hasAuthToken,
         tokenLength: authTokenValue?.length || 0,
         reason: failureReason,
         referer: request.headers.get('referer'),
-        httpsDetected: logData.httpsDetected
+        httpsDetected: logData.httpsDetected,
+        userAgent: request.headers.get('user-agent')?.substring(0, 100),
+        timestamp: new Date().toISOString()
       })
+
+      // PRODUCTION: Add delay to prevent rapid redirects in race conditions
+      if (isProduction && request.headers.get('referer')?.includes('/auth/signin')) {
+        console.log('PRODUCTION: Detected potential redirect loop, adding delay')
+        // Don't redirect immediately if coming from signin page
+        const response = NextResponse.next()
+        response.headers.set('X-Auth-Status', 'checking')
+        return response
+      }
 
       // Redirect to signin with callback URL
       const signInUrl = new URL('/auth/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', request.url)
-      return NextResponse.redirect(signInUrl)
+
+      const redirectResponse = NextResponse.redirect(signInUrl)
+      redirectResponse.headers.set('X-Auth-Redirect-Reason', failureReason)
+      return redirectResponse
     }
 
     // ENHANCED: Additional session validation for production

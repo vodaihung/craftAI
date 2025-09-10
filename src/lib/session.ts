@@ -68,12 +68,39 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
     })
   }
 
-  response.cookies.set(cookie)
+  // Set the cookie with enhanced error handling
+  try {
+    response.cookies.set(cookie)
+
+    // PRODUCTION: Verify cookie was set
+    if (isProduction) {
+      const setCookieHeader = response.headers.get('set-cookie')
+      if (!setCookieHeader || !setCookieHeader.includes('auth-token')) {
+        console.error('PRODUCTION: Cookie may not have been set properly:', {
+          hasCookieHeader: !!setCookieHeader,
+          cookieHeaderContent: setCookieHeader?.substring(0, 100)
+        })
+      } else {
+        console.log('PRODUCTION: Cookie header set successfully')
+      }
+    }
+  } catch (cookieError) {
+    console.error('Error setting session cookie:', cookieError)
+    throw cookieError
+  }
 
   // ENHANCED: Production debugging headers
   response.headers.set('X-Auth-Cookie-Set', 'true')
   response.headers.set('X-Auth-Secure', cookie.secure.toString())
   response.headers.set('X-Auth-Domain', cookie.domain || 'none')
+  response.headers.set('X-Auth-SameSite', cookie.sameSite)
+
+  // PRODUCTION: Add cache control headers to prevent caching of auth responses
+  if (isProduction) {
+    response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+  }
 
   return response
 }

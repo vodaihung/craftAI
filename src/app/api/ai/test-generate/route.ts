@@ -56,9 +56,9 @@ function generateMockFormSchema(prompt: string): FormSchema {
           label: 'Attachment (Optional)',
           required: false,
           fileConfig: {
-            maxSize: 5,
-            allowedTypes: ['image/jpeg', 'image/png', 'application/pdf', 'text/plain'],
-            multiple: false
+            maxSize: 50,
+            allowedTypes: [], // Allow all file types
+            multiple: true
           }
         }
       ],

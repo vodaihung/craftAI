@@ -74,7 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  // Login function with enhanced logging and error handling
+  // Login function with proper session synchronization
   const login = useCallback(async (email: string, password: string) => {
     try {
       console.log('Attempting login for:', email)
@@ -97,9 +97,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
 
       if (response.ok && data.success) {
-        console.log('Login successful, updating auth state for user:', data.user.email)
-        setUser(data.user)
-        setStatus('authenticated')
+        console.log('Login successful, waiting for session synchronization...')
+
+        // CRITICAL FIX: Wait for cookie to be properly set before updating state
+        // This prevents race conditions in production
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Verify session is actually available by checking the session endpoint
+        let sessionVerified = false
+        let attempts = 0
+        const maxAttempts = 5
+
+        while (!sessionVerified && attempts < maxAttempts) {
+          try {
+            const sessionResponse = await fetch('/api/auth/session', {
+              method: 'GET',
+              credentials: 'include',
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              }
+            })
+
+            if (sessionResponse.ok) {
+              const sessionData = await sessionResponse.json()
+              if (sessionData.success && sessionData.session?.user) {
+                sessionVerified = true
+                console.log('Session verified successfully after login')
+
+                // Update state with verified session data
+                setUser(sessionData.session.user)
+                setStatus('authenticated')
+                break
+              }
+            }
+          } catch (sessionError) {
+            console.warn('Session verification attempt failed:', sessionError)
+          }
+
+          attempts++
+          if (attempts < maxAttempts) {
+            // Wait progressively longer between attempts
+            await new Promise(resolve => setTimeout(resolve, 100 * attempts))
+          }
+        }
+
+        if (!sessionVerified) {
+          console.error('Session verification failed after login - falling back to login response data')
+          // Fallback to login response data if session verification fails
+          setUser(data.user)
+          setStatus('authenticated')
+        }
+
         return { success: true }
       } else {
         console.log('Login failed:', data.error)
@@ -172,8 +222,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  // Refresh session function
+  // Refresh session function with production enhancements
   const refreshSession = useCallback(async () => {
+    console.log('Refreshing session...')
+
+    // PRODUCTION: Clear any cached session data before refresh
+    if (typeof window !== 'undefined') {
+      // Clear any localStorage session data
+      localStorage.removeItem('auth-session')
+      localStorage.removeItem('user-data')
+    }
+
     await checkSession()
   }, [checkSession])
 

@@ -59,9 +59,9 @@ const templates: FormTemplate[] = [
           label: 'Attachment (Optional)',
           required: false,
           fileConfig: {
-            maxSize: 5,
-            allowedTypes: ['image/jpeg', 'image/png', 'application/pdf'],
-            multiple: false
+            maxSize: 50,
+            allowedTypes: [], // Allow all file types
+            multiple: true
           }
         }
       ],
@@ -247,9 +247,9 @@ const templates: FormTemplate[] = [
           label: 'Resume/CV',
           required: true,
           fileConfig: {
-            maxSize: 10,
-            allowedTypes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-            multiple: false
+            maxSize: 50,
+            allowedTypes: [], // Allow all file types - users can upload any format
+            multiple: true
           }
         },
         {
