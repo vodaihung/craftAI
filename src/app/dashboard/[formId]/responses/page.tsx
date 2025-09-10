@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { AlertModal, useAlertModal } from '@/components/ui/alert-modal'
 import {
   ArrowLeft,
   Download,
@@ -55,6 +56,7 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
   const [resolvedParams, setResolvedParams] = useState<{ formId: string } | null>(null)
   const [viewingResponse, setViewingResponse] = useState<any>(null)
   const [deletingResponseId, setDeletingResponseId] = useState<string | null>(null)
+  const { showAlert, AlertModal: AlertModalComponent } = useAlertModal()
 
   useEffect(() => {
     params.then(setResolvedParams)
@@ -141,7 +143,7 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
 
     } catch (err) {
       console.error('Error deleting response:', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete response')
+      showAlert('error', 'Delete Failed', err instanceof Error ? err.message : 'Failed to delete response')
     } finally {
       setDeletingResponseId(null)
     }
@@ -163,7 +165,7 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Export failed:', error)
-      alert('Failed to export responses')
+      showAlert('error', 'Export Failed', 'Failed to export responses')
     }
   }
 
@@ -610,6 +612,9 @@ export default function ResponsesPage({ params }: ResponsesPageProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Alert Modal */}
+      <AlertModalComponent />
     </div>
   )
 }

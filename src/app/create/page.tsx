@@ -10,6 +10,7 @@ import { ChatErrorBoundary, FormErrorBoundary } from '@/components/error-boundar
 import { UserMenu } from '@/components/user-menu'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAlertModal } from '@/components/ui/alert-modal'
 import { ArrowLeft, Save, Share } from 'lucide-react'
 import Link from 'next/link'
 import type { FormSchema } from '@/lib/db/schema'
@@ -17,6 +18,7 @@ import type { FormSchema } from '@/lib/db/schema'
 export default function CreateFormPage() {
   const { user, status } = useAuth()
   const router = useRouter()
+  const { showAlert, AlertModal } = useAlertModal()
   const [currentFormSchema, setCurrentFormSchema] = useState<FormSchema | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [formsCount, setFormsCount] = useState(0)
@@ -49,7 +51,7 @@ export default function CreateFormPage() {
   const handleFormGenerated = (formSchema: FormSchema) => {
     // Check form limits for free tier
     if (currentTier === 'free' && formsCount >= 3) {
-      alert('You\'ve reached the limit of 3 forms on the free plan. Please upgrade to create more forms.')
+      showAlert('warning', 'You\'ve reached the limit of 3 forms on the free plan. Please upgrade to create more forms.')
       return
     }
 
@@ -92,15 +94,18 @@ export default function CreateFormPage() {
       if (result.success) {
         // Update the form schema with the saved form ID
         setCurrentFormSchema(prev => prev ? { ...prev, id: result.form.id } : null)
-        alert(`Form "${result.form.name}" saved successfully! You can now share it or find it in your dashboard.`)
         setFormsCount(prev => prev + 1) // Update local count
-        // Don't redirect immediately - let user share if they want
+
+        // Show success message and redirect to dashboard
+        showAlert('success', `Form "${result.form.name}" saved successfully! You can now share it or find it in your dashboard.`, {
+          onConfirm: () => router.push('/dashboard')
+        })
       } else {
         throw new Error(result.error || 'Failed to save form')
       }
     } catch (error) {
       console.error('Failed to save form:', error)
-      alert(`Failed to save form: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showAlert('error', `Failed to save form: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -111,7 +116,7 @@ export default function CreateFormPage() {
 
     // First save the form if it hasn't been saved yet
     if (!currentFormSchema.id) {
-      alert('Please save your form first before sharing.')
+      showAlert('warning', 'Please save your form first before sharing.')
       return
     }
 
@@ -121,7 +126,7 @@ export default function CreateFormPage() {
     // Copy to clipboard
     try {
       await navigator.clipboard.writeText(publicUrl)
-      alert(`Form URL copied to clipboard!\n\n${publicUrl}\n\nShare this link with anyone to collect responses.`)
+      showAlert('success', `Form URL copied to clipboard!\n\n${publicUrl}\n\nShare this link with anyone to collect responses.`)
     } catch (error) {
       // Fallback for browsers that don't support clipboard API
       prompt('Copy this URL to share your form:', publicUrl)
@@ -264,6 +269,7 @@ export default function CreateFormPage() {
           </div>
         )}
       </main>
+      <AlertModal />
     </div>
   )
 }

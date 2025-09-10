@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,12 +18,20 @@ export function UserMenu() {
   const { user, status, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [buttonRect, setButtonRect] = useState<DOMRect | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Set mounted state for portal
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
-      if (!target.closest('[data-user-menu]')) {
+      // Check if click is outside both the button and the dropdown
+      if (!target.closest('[data-user-menu]') && !target.closest('[data-user-dropdown]')) {
         setIsOpen(false)
       }
     }
@@ -32,6 +41,14 @@ export function UserMenu() {
       return () => document.removeEventListener('click', handleClickOutside)
     }
   }, [isOpen])
+
+  // Update button position when dropdown opens
+  const updateButtonPosition = (button: HTMLButtonElement) => {
+    if (button) {
+      const rect = button.getBoundingClientRect()
+      setButtonRect(rect)
+    }
+  }
 
   const handleSignOut = async () => {
     setIsOpen(false)
@@ -74,8 +91,16 @@ export function UserMenu() {
   return (
     <div className="relative" data-user-menu>
       <Button
+        ref={(button) => {
+          if (button && isOpen && !buttonRect) {
+            updateButtonPosition(button)
+          }
+        }}
         variant="ghost"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          updateButtonPosition(e.currentTarget)
+          setIsOpen(!isOpen)
+        }}
         className="flex items-center space-x-2 h-auto p-2"
         disabled={isLoggingOut}
       >
@@ -103,15 +128,22 @@ export function UserMenu() {
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </Button>
 
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 bg-background border border-border rounded-lg shadow-lg z-50">
+      {isOpen && mounted && buttonRect && createPortal(
+        <div
+          data-user-dropdown
+          className="fixed w-56 bg-background border border-border rounded-lg shadow-lg z-[9999]"
+          style={{
+            top: buttonRect.bottom + 8,
+            right: window.innerWidth - buttonRect.right,
+          }}
+        >
           <div className="p-1">
             {/* User Info */}
             <div className="px-3 py-2 text-sm border-b border-border">
               <div className="font-medium">{user?.name || 'User'}</div>
               <div className="text-muted-foreground">{user?.email}</div>
             </div>
-            
+
             {/* Menu Items */}
             <div className="py-1">
               <Link href="/dashboard">
@@ -120,7 +152,7 @@ export function UserMenu() {
                   <span>Dashboard</span>
                 </button>
               </Link>
-              
+
               <button
                 onClick={handleSignOut}
                 disabled={isLoggingOut}
@@ -135,7 +167,8 @@ export function UserMenu() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

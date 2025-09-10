@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
+import { AlertModal, useAlertModal } from '@/components/ui/alert-modal'
 import { Star } from 'lucide-react'
 import type { FormSchema, FormField } from '@/lib/db/schema'
 
@@ -24,6 +25,7 @@ interface FormData {
 export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
   const [formData, setFormData] = useState<FormData>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { showAlert, AlertModal: AlertModalComponent } = useAlertModal()
 
   if (!formSchema) {
     return (
@@ -56,8 +58,8 @@ export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
     
     // Simulate form submission
     await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    alert(formSchema.settings?.successMessage || 'Form submitted successfully!')
+
+    showAlert('success', 'Form Submitted', formSchema.settings?.successMessage || 'Form submitted successfully!')
     setIsSubmitting(false)
     
     // Reset form if multiple submissions not allowed
@@ -244,6 +246,9 @@ export function FormPreview({ formSchema, className = '' }: FormPreviewProps) {
           </Button>
         </form>
       </CardContent>
+
+      {/* Alert Modal */}
+      <AlertModalComponent />
     </Card>
   )
 }

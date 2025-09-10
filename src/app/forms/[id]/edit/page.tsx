@@ -8,6 +8,7 @@ import { FormPreview } from '@/components/form-preview'
 import { ChatErrorBoundary, FormErrorBoundary } from '@/components/error-boundary'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertModal, useAlertModal } from '@/components/ui/alert-modal'
 import { ArrowLeft, Save, Share, Eye } from 'lucide-react'
 import Link from 'next/link'
 import type { FormSchema } from '@/lib/db/schema'
@@ -25,6 +26,7 @@ export default function EditFormPage({ params }: EditFormPageProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { showAlert, AlertModal: AlertModalComponent } = useAlertModal()
 
   // Resolve params
   useEffect(() => {
@@ -95,13 +97,13 @@ export default function EditFormPage({ params }: EditFormPageProps) {
 
       if (result.success) {
         setOriginalForm(result.form)
-        alert(`Form "${result.form.name}" updated successfully!`)
+        showAlert('success', 'Form Saved', `Form "${result.form.name}" updated successfully!`)
       } else {
         throw new Error(result.error || 'Failed to update form')
       }
     } catch (error) {
       console.error('Failed to save form:', error)
-      alert(`Failed to save form: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showAlert('error', 'Save Failed', `Failed to save form: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
@@ -113,9 +115,9 @@ export default function EditFormPage({ params }: EditFormPageProps) {
     if (originalForm.isPublished) {
       const formUrl = `${window.location.origin}/forms/${formId}`
       navigator.clipboard.writeText(formUrl)
-      alert('Form URL copied to clipboard!')
+      showAlert('success', 'URL Copied', 'Form URL copied to clipboard!')
     } else {
-      alert('Please publish the form first to share it.')
+      showAlert('warning', 'Form Not Published', 'Please publish the form first to share it.')
     }
   }
 
@@ -270,6 +272,9 @@ export default function EditFormPage({ params }: EditFormPageProps) {
           </div>
         </div>
       </main>
+
+      {/* Alert Modal */}
+      <AlertModalComponent />
     </div>
   )
 }

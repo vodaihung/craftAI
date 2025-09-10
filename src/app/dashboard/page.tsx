@@ -1,20 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DashboardLoading } from '@/components/loading'
 import ErrorBoundary from '@/components/error-boundary'
-import { lazy, Suspense } from 'react'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { FormsList } from '@/components/dashboard/forms-list'
-
-// Lazy load heavy components to improve initial page load
-const TroubleshootChat = lazy(() => import('@/components/troubleshoot-chat').then(m => ({ default: m.TroubleshootChat })))
-const SubscriptionManager = lazy(() => import('@/components/subscription-manager').then(m => ({ default: m.SubscriptionManager })))
+import { TroubleshootChat } from '@/components/troubleshoot-chat'
+import { SubscriptionManager } from '@/components/subscription-manager'
+import { useAlertModal } from '@/components/ui/alert-modal'
 import { FileText } from 'lucide-react'
 import type { Form } from '@/lib/db/schema'
 
@@ -25,6 +23,7 @@ interface FormWithStats extends Form {
 export default function DashboardPage() {
   const { status } = useAuth()
   const router = useRouter()
+  const { showAlert, AlertModal } = useAlertModal()
   const [forms, setForms] = useState<FormWithStats[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,32 +91,34 @@ export default function DashboardPage() {
   }, [status, router]) // Removed session from dependencies to prevent infinite loop
 
   const handleDeleteForm = async (formId: string, formName: string) => {
-    if (!confirm(`Are you sure you want to delete "${formName}"? This action cannot be undone.`)) {
-      return
-    }
+    showAlert('confirm', `Are you sure you want to delete "${formName}"? This action cannot be undone.`, {
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        const actionKey = `delete-${formId}`
+        try {
+          setActionLoading(prev => ({ ...prev, [actionKey]: true }))
 
-    const actionKey = `delete-${formId}`
-    try {
-      setActionLoading(prev => ({ ...prev, [actionKey]: true }))
+          const response = await fetch(`/api/forms/${formId}`, {
+            method: 'DELETE'
+          })
 
-      const response = await fetch(`/api/forms/${formId}`, {
-        method: 'DELETE'
-      })
+          const result = await response.json()
 
-      const result = await response.json()
-
-      if (result.success) {
-        setForms(forms.filter(form => form.id !== formId))
-        console.log('Form deleted successfully!')
-      } else {
-        alert(`Failed to delete form: ${result.error}`)
+          if (result.success) {
+            setForms(forms.filter(form => form.id !== formId))
+            showAlert('success', 'Form deleted successfully!')
+          } else {
+            showAlert('error', `Failed to delete form: ${result.error}`)
+          }
+        } catch (error) {
+          console.error('Error deleting form:', error)
+          showAlert('error', 'Failed to delete form. Please try again.')
+        } finally {
+          setActionLoading(prev => ({ ...prev, [actionKey]: false }))
+        }
       }
-    } catch (error) {
-      console.error('Error deleting form:', error)
-      alert('Failed to delete form. Please try again.')
-    } finally {
-      setActionLoading(prev => ({ ...prev, [actionKey]: false }))
-    }
+    })
   }
 
   const handleTogglePublish = async (formId: string, isCurrentlyPublished: boolean) => {
@@ -137,14 +138,13 @@ export default function DashboardPage() {
             ? { ...form, isPublished: !isCurrentlyPublished }
             : form
         ))
-        // Use a more subtle notification instead of alert
-        console.log(result.message)
+        showAlert('success', result.message)
       } else {
-        alert(`Failed to ${isCurrentlyPublished ? 'unpublish' : 'publish'} form: ${result.error}`)
+        showAlert('error', `Failed to ${isCurrentlyPublished ? 'unpublish' : 'publish'} form: ${result.error}`)
       }
     } catch (error) {
       console.error('Error toggling publish status:', error)
-      alert('Failed to update form status. Please try again.')
+      showAlert('error', 'Failed to update form status. Please try again.')
     } finally {
       setActionLoading(prev => ({ ...prev, [actionKey]: false }))
     }
@@ -212,17 +212,15 @@ export default function DashboardPage() {
       {troubleshootFormId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-background rounded-lg shadow-lg w-full max-w-4xl h-[80vh] flex flex-col">
-            <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-              <TroubleshootChat
-                formId={troubleshootFormId}
-                formName={troubleshootFormName}
-                onClose={() => {
-                  setTroubleshootFormId(null)
-                  setTroubleshootFormName('')
-                }}
-                className="flex-1"
-              />
-            </Suspense>
+            <TroubleshootChat
+              formId={troubleshootFormId}
+              formName={troubleshootFormName}
+              onClose={() => {
+                setTroubleshootFormId(null)
+                setTroubleshootFormName('')
+              }}
+              className="flex-1"
+            />
           </div>
         </div>
       )}
@@ -243,22 +241,21 @@ export default function DashboardPage() {
                 </Button>
               </div>
 
-              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
-                <SubscriptionManager
-                  currentTier={currentTier}
-                  formsCount={forms.length}
-                  responsesCount={forms.reduce((sum, form) => sum + (form.responseCount || 0), 0)}
-                  onUpgrade={(tierId) => {
-                    setCurrentTier(tierId)
-                    setShowSubscriptionManager(false)
-                  }}
-                  onClose={() => setShowSubscriptionManager(false)}
-                />
-              </Suspense>
+              <SubscriptionManager
+                currentTier={currentTier}
+                formsCount={forms.length}
+                responsesCount={forms.reduce((sum, form) => sum + (form.responseCount || 0), 0)}
+                onUpgrade={(tierId) => {
+                  setCurrentTier(tierId)
+                  setShowSubscriptionManager(false)
+                }}
+                onClose={() => setShowSubscriptionManager(false)}
+              />
             </div>
           </div>
         </div>
       )}
+      <AlertModal />
       </div>
     </ErrorBoundary>
   )

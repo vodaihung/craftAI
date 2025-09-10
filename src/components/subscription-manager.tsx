@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Crown, 
-  Check, 
-  X, 
-  Zap, 
-  Users, 
-  BarChart3, 
+import { AlertModal, useAlertModal } from '@/components/ui/alert-modal'
+import {
+  Crown,
+  Check,
+  X,
+  Zap,
+  Users,
+  BarChart3,
   Shield,
   Sparkles
 } from 'lucide-react'
@@ -59,21 +60,6 @@ const SUBSCRIPTION_TIERS: SubscriptionTier[] = [
       maxResponses: 'unlimited',
       aiTroubleshooting: true,
       analytics: true,
-      customBranding: false,
-      priority: true,
-      webhooks: false
-    }
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 49,
-    interval: 'month',
-    features: {
-      maxForms: 'unlimited',
-      maxResponses: 'unlimited',
-      aiTroubleshooting: true,
-      analytics: true,
       customBranding: true,
       priority: true,
       webhooks: true
@@ -89,15 +75,16 @@ interface SubscriptionManagerProps {
   onClose?: () => void
 }
 
-export function SubscriptionManager({ 
-  currentTier = 'free', 
-  formsCount = 0, 
+export function SubscriptionManager({
+  currentTier = 'free',
+  formsCount = 0,
   responsesCount = 0,
   onUpgrade,
-  onClose 
+  onClose
 }: SubscriptionManagerProps) {
   const [selectedTier, setSelectedTier] = useState<string>(currentTier)
   const [isProcessing, setIsProcessing] = useState(false)
+  const { showAlert, AlertModal: AlertModalComponent } = useAlertModal()
 
   const currentTierData = SUBSCRIPTION_TIERS.find(tier => tier.id === currentTier)
   const selectedTierData = SUBSCRIPTION_TIERS.find(tier => tier.id === selectedTier)
@@ -109,14 +96,14 @@ export function SubscriptionManager({
     try {
       // Simulate upgrade process
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       if (onUpgrade) {
         onUpgrade(tierId)
       }
-      
-      alert(`Successfully upgraded to ${SUBSCRIPTION_TIERS.find(t => t.id === tierId)?.name}!`)
+
+      showAlert('success', 'Upgrade Successful', `Successfully upgraded to ${SUBSCRIPTION_TIERS.find(t => t.id === tierId)?.name}!`)
     } catch (error) {
-      alert('Upgrade failed. Please try again.')
+      showAlert('error', 'Upgrade Failed', 'Upgrade failed. Please try again.')
     } finally {
       setIsProcessing(false)
     }
@@ -204,7 +191,7 @@ export function SubscriptionManager({
       </Card>
 
       {/* Subscription Plans */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         {SUBSCRIPTION_TIERS.map((tier) => (
           <Card 
             key={tier.id} 
@@ -224,8 +211,7 @@ export function SubscriptionManager({
             
             <CardHeader className="text-center">
               <CardTitle className="flex items-center justify-center space-x-2">
-                {tier.id === 'enterprise' && <Crown className="w-5 h-5 text-yellow-500" />}
-                {tier.id === 'pro' && <Zap className="w-5 h-5 text-blue-500" />}
+                {tier.id === 'pro' && <Crown className="w-5 h-5 text-yellow-500" />}
                 <span>{tier.name}</span>
               </CardTitle>
               <div className="text-3xl font-bold">
@@ -328,6 +314,9 @@ export function SubscriptionManager({
           </Button>
         )}
       </div>
+
+      {/* Alert Modal */}
+      <AlertModalComponent />
     </div>
   )
 }
