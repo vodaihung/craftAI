@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { logProductionAuthEnvironment } from '@/lib/production-auth-debug'
 
 // Types
 export interface User {
@@ -55,6 +56,9 @@ if (process.env.NODE_ENV === 'production') {
     cookie_name: COOKIE_NAME,
     session_duration_days: SESSION_DURATION / (24 * 60 * 60 * 1000)
   })
+
+  // PRODUCTION: Run comprehensive environment check
+  logProductionAuthEnvironment()
 } else {
   console.log('DEV JWT Configuration:', {
     JWT_SECRET_configured: !!process.env.JWT_SECRET,

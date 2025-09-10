@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createForm, getAllForms, getFormsByUserId } from '@/lib/db/queries'
 import { insertFormSchema, FormSchemaSchema } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/session'
+import { logProductionCookieDebug } from '@/lib/production-auth-debug'
 import { z } from 'zod'
 
 // Simple in-memory cache for forms data
@@ -52,6 +53,9 @@ const CreateFormRequestSchema = z.object({
 // GET /api/forms - Get user's forms
 export async function GET(request: NextRequest) {
   try {
+    // PRODUCTION: Enhanced debugging for authentication issues
+    logProductionCookieDebug(request)
+
     const session = await requireAuth()
     const userId = session.userId
 

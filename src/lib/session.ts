@@ -4,11 +4,20 @@ import { getSession, getSessionFromRequest, getExpiredSessionCookie, SessionPayl
 // Server-side session utilities
 export async function requireAuth(): Promise<SessionPayload> {
   const session = await getSession()
-  
+
+  // PRODUCTION: Enhanced debugging for authentication failures
+  if (!session && process.env.NODE_ENV === 'production') {
+    console.log('PRODUCTION: Authentication failed - no session found:', {
+      timestamp: new Date().toISOString(),
+      nodeEnv: process.env.NODE_ENV,
+      cookieName: 'auth-token'
+    })
+  }
+
   if (!session) {
     throw new Error('Authentication required')
   }
-  
+
   return session
 }
 
@@ -27,18 +36,19 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
   const isProduction = process.env.NODE_ENV === 'production'
   const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds (matching auth.ts)
 
-  // PRODUCTION FIX: More permissive cookie configuration
+  // PRODUCTION FIX: Use same cookie configuration as auth.ts for consistency
+  const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
+
   const cookie = {
     name: 'auth-token',
     value: token,
     httpOnly: true,
-    // PRODUCTION FIX: Always secure in production, flexible in development
-    secure: isProduction,
+    secure: isSecureContext, // PRODUCTION FIX: Match auth.ts secure detection
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds (matching auth.ts calculation)
     path: '/',
-    // PRODUCTION FIX: Only set domain if explicitly configured
-    ...(process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
+    // PRODUCTION FIX: Match auth.ts domain handling
+    ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
   // ENHANCED: Production-specific logging
@@ -51,10 +61,14 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
       maxAge: cookie.maxAge,
       tokenLength: token.length,
       isProduction,
+      isSecureContext,
       // PRODUCTION DEBUG INFO
       forceHttps: process.env.FORCE_HTTPS,
       cookieDomain: process.env.COOKIE_DOMAIN,
-      nodeEnv: process.env.NODE_ENV
+      nodeEnv: process.env.NODE_ENV,
+      // PRODUCTION: Additional debugging for cookie issues
+      userAgent: 'server-side',
+      timestamp: new Date().toISOString()
     })
   } else {
     console.log('DEV: Setting session cookie:', {
@@ -71,14 +85,19 @@ export function setSessionCookie(response: NextResponse, token: string): NextRes
   try {
     response.cookies.set(cookie)
 
-    // PRODUCTION: Verify cookie was set
+    // PRODUCTION: Verify cookie was set and add fallback
     if (isProduction) {
       const setCookieHeader = response.headers.get('set-cookie')
       if (!setCookieHeader || !setCookieHeader.includes('auth-token')) {
-        console.error('PRODUCTION: Cookie may not have been set properly:', {
+        console.error('PRODUCTION: Cookie may not have been set properly, trying fallback:', {
           hasCookieHeader: !!setCookieHeader,
           cookieHeaderContent: setCookieHeader?.substring(0, 100)
         })
+
+        // PRODUCTION FIX: Manual cookie header setting as fallback
+        const fallbackCookieString = `${cookie.name}=${cookie.value}; Path=${cookie.path}; Max-Age=${cookie.maxAge}; HttpOnly; SameSite=${cookie.sameSite}${cookie.secure ? '; Secure' : ''}${cookie.domain ? `; Domain=${cookie.domain}` : ''}`
+        response.headers.set('Set-Cookie', fallbackCookieString)
+        console.log('PRODUCTION: Fallback cookie header set')
       } else {
         console.log('PRODUCTION: Cookie header set successfully')
       }
