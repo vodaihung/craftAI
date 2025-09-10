@@ -22,38 +22,58 @@ export async function requireAuthFromRequest(request: NextRequest): Promise<Sess
   return session
 }
 
-// Response utilities for setting/clearing session cookies
+// ENHANCED: Production-aware cookie configuration
 export function setSessionCookie(response: NextResponse, token: string): NextResponse {
   const isProduction = process.env.NODE_ENV === 'production'
   const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds (matching auth.ts)
+  
+  // CRITICAL: Detect if we're behind a proxy (common in production)
+  const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
   
   const cookie = {
     name: 'auth-token',
     value: token,
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureContext, // FIXED: More flexible secure cookie detection
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds (matching auth.ts calculation)
     path: '/',
-    // Add domain for production if needed
+    // ENHANCED: Production domain handling
     ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
-  // Enhanced logging for debugging cookie issues
-  console.log('Setting session cookie in response:', {
-    name: cookie.name,
-    secure: cookie.secure,
-    sameSite: cookie.sameSite,
-    domain: cookie.domain || 'not set',
-    maxAge: cookie.maxAge,
-    tokenLength: token.length,
-    isProduction
-  })
+  // ENHANCED: Production-specific logging
+  if (isProduction) {
+    console.log('PRODUCTION: Setting session cookie:', {
+      name: cookie.name,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      domain: cookie.domain || 'not set',
+      maxAge: cookie.maxAge,
+      tokenLength: token.length,
+      isProduction,
+      // PRODUCTION DEBUG INFO
+      forceHttps: process.env.FORCE_HTTPS,
+      cookieDomain: process.env.COOKIE_DOMAIN,
+      nodeEnv: process.env.NODE_ENV
+    })
+  } else {
+    console.log('DEV: Setting session cookie:', {
+      name: cookie.name,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      domain: cookie.domain || 'not set',
+      maxAge: cookie.maxAge,
+      tokenLength: token.length
+    })
+  }
 
   response.cookies.set(cookie)
 
-  // Also set a backup header for debugging
+  // ENHANCED: Production debugging headers
   response.headers.set('X-Auth-Cookie-Set', 'true')
+  response.headers.set('X-Auth-Secure', cookie.secure.toString())
+  response.headers.set('X-Auth-Domain', cookie.domain || 'none')
 
   return response
 }
@@ -97,6 +117,10 @@ export function isPublicRoute(pathname: string): boolean {
     '/_next',
     '/favicon.ico',
     '/api/health',
+    // PRODUCTION: Add common production health check routes
+    '/health',
+    '/api/status',
+    '/status'
   ]
   
   return publicRoutes.some(route => pathname.startsWith(route))

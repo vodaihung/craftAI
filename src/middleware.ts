@@ -6,6 +6,17 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isProduction = process.env.NODE_ENV === 'production'
 
+  // PRODUCTION: Validate environment on first request
+  if (isProduction && !globalThis.__productionValidated) {
+    try {
+      const { logProductionValidation } = await import('@/lib/production-validation')
+      logProductionValidation()
+      globalThis.__productionValidated = true
+    } catch (error) {
+      console.error('Production validation import failed:', error)
+    }
+  }
+
   // Allow public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next()
@@ -16,7 +27,7 @@ export async function middleware(request: NextRequest) {
   const hasAuthToken = !!request.cookies.get('auth-token')?.value
   const authTokenValue = request.cookies.get('auth-token')?.value
 
-  // Enhanced logging for debugging authentication issues
+  // ENHANCED: Production-aware logging
   const logData = {
     pathname,
     hasAuthToken,
@@ -26,26 +37,40 @@ export async function middleware(request: NextRequest) {
     userAgent: request.headers.get('user-agent')?.substring(0, 50),
     timestamp: new Date().toISOString(),
     isProduction,
-    // NEW: Add more debugging info
+    // PRODUCTION: Additional debugging info
     referer: request.headers.get('referer'),
     host: request.headers.get('host'),
-    origin: request.headers.get('origin')
+    origin: request.headers.get('origin'),
+    httpsDetected: request.headers.get('x-forwarded-proto') === 'https' || 
+                   request.headers.get('x-forwarded-ssl') === 'on' ||
+                   request.url.startsWith('https://'),
+    forwardedFor: request.headers.get('x-forwarded-for'),
+    realIp: request.headers.get('x-real-ip')
   }
 
-  // Always log in development, limited logging in production
-  if (!isProduction || !session) {
-    console.log('Middleware authentication check:', logData)
+  // PRODUCTION: Conditional logging based on environment
+  if (isProduction) {
+    // Only log failures and important events in production
+    if (!session && isProtectedRoute(pathname)) {
+      console.log('PRODUCTION: Middleware auth failure:', logData)
+    }
+  } else {
+    // Full logging in development
+    console.log('DEV: Middleware authentication check:', logData)
   }
 
   // Handle protected routes
   if (isProtectedRoute(pathname)) {
     if (!session) {
-      console.log('Redirecting to signin - no session for protected route:', {
+      const failureReason = hasAuthToken ? 'Token present but session invalid' : 'No auth token'
+      
+      console.log(`${isProduction ? 'PRODUCTION' : 'DEV'}: Redirecting to signin - no session for protected route:`, {
         pathname,
         hasAuthToken,
         tokenLength: authTokenValue?.length || 0,
-        reason: hasAuthToken ? 'Token present but session invalid' : 'No auth token',
-        referer: request.headers.get('referer')
+        reason: failureReason,
+        referer: request.headers.get('referer'),
+        httpsDetected: logData.httpsDetected
       })
 
       // Redirect to signin with callback URL
@@ -54,13 +79,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(signInUrl)
     }
 
-    // ENHANCED: Additional session validation
+    // ENHANCED: Additional session validation for production
     if (session.exp && session.exp < Math.floor(Date.now() / 1000)) {
-      console.log('Redirecting to signin - session expired:', {
+      console.log(`${isProduction ? 'PRODUCTION' : 'DEV'}: Redirecting to signin - session expired:`, {
         pathname,
         userId: session.userId,
         exp: session.exp,
-        now: Math.floor(Date.now() / 1000)
+        now: Math.floor(Date.now() / 1000),
+        expiredBy: Math.floor(Date.now() / 1000) - session.exp
       })
 
       const signInUrl = new URL('/auth/signin', request.url)
@@ -68,11 +94,20 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(signInUrl)
     }
 
-    console.log('Allowing access to protected route:', {
-      pathname,
-      userId: session.userId,
-      userEmail: session.email
-    })
+    // PRODUCTION: Success logging (minimal)
+    if (isProduction) {
+      console.log('PRODUCTION: Protected route access granted:', {
+        pathname,
+        userId: session.userId,
+        userEmail: session.email?.substring(0, 3) + '***' // Partial email for privacy
+      })
+    } else {
+      console.log('DEV: Allowing access to protected route:', {
+        pathname,
+        userId: session.userId,
+        userEmail: session.email
+      })
+    }
 
     // User is authenticated, allow access
     return NextResponse.next()
@@ -83,11 +118,13 @@ export async function middleware(request: NextRequest) {
     if (session) {
       // User is already authenticated, redirect to dashboard or callback
       const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || '/dashboard'
-      console.log('Redirecting authenticated user from auth page:', {
+      
+      console.log(`${isProduction ? 'PRODUCTION' : 'DEV'}: Redirecting authenticated user from auth page:`, {
         pathname,
         userId: session.userId,
         redirectTo: callbackUrl
       })
+      
       return NextResponse.redirect(new URL(callbackUrl, request.url))
     }
 
@@ -110,4 +147,9 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
+}
+
+// Global type declaration for production validation flag
+declare global {
+  var __productionValidated: boolean | undefined
 }

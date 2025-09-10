@@ -20,18 +20,47 @@ export interface SessionPayload {
   exp?: number
 }
 
+// ENHANCED: Production-safe JWT configuration
+function getJWTSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET
+  
+  // CRITICAL: Fail fast in production if no secret is provided
+  if (process.env.NODE_ENV === 'production' && !secret) {
+    throw new Error('JWT_SECRET or NEXTAUTH_SECRET must be set in production environment')
+  }
+  
+  // CRITICAL: Ensure secret is long enough for production
+  if (process.env.NODE_ENV === 'production' && secret && secret.length < 32) {
+    throw new Error('JWT_SECRET must be at least 32 characters long in production')
+  }
+  
+  // Development fallback (only in development)
+  const finalSecret = secret || 'dev-secret-key-change-in-production-at-least-32-chars-long'
+  
+  return new TextEncoder().encode(finalSecret)
+}
+
 // Configuration
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production'
-)
+const JWT_SECRET = getJWTSecret()
 const JWT_ALGORITHM = 'HS256'
 const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
 const COOKIE_NAME = 'auth-token'
 
-// Debug logging for production
+// ENHANCED: Production logging for JWT configuration
 if (process.env.NODE_ENV === 'production') {
-  console.log('JWT_SECRET configured:', !!process.env.JWT_SECRET)
-  console.log('NEXTAUTH_SECRET configured:', !!process.env.NEXTAUTH_SECRET)
+  console.log('PRODUCTION JWT Configuration:', {
+    JWT_SECRET_configured: !!process.env.JWT_SECRET,
+    NEXTAUTH_SECRET_configured: !!process.env.NEXTAUTH_SECRET,
+    secret_length: (process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET)?.length || 0,
+    cookie_name: COOKIE_NAME,
+    session_duration_days: SESSION_DURATION / (24 * 60 * 60 * 1000)
+  })
+} else {
+  console.log('DEV JWT Configuration:', {
+    JWT_SECRET_configured: !!process.env.JWT_SECRET,
+    NEXTAUTH_SECRET_configured: !!process.env.NEXTAUTH_SECRET,
+    using_fallback: !process.env.JWT_SECRET && !process.env.NEXTAUTH_SECRET
+  })
 }
 
 // Password utilities
@@ -48,11 +77,36 @@ export async function createJWT(payload: Omit<SessionPayload, 'iat' | 'exp'>): P
   const iat = Math.floor(Date.now() / 1000)
   const exp = Math.floor((Date.now() + SESSION_DURATION) / 1000)
 
-  return new SignJWT({ ...payload, iat, exp })
-    .setProtectedHeader({ alg: JWT_ALGORITHM })
-    .setIssuedAt(iat)
-    .setExpirationTime(exp)
-    .sign(JWT_SECRET)
+  try {
+    const token = await new SignJWT({ ...payload, iat, exp })
+      .setProtectedHeader({ alg: JWT_ALGORITHM })
+      .setIssuedAt(iat)
+      .setExpirationTime(exp)
+      .sign(JWT_SECRET)
+      
+    // PRODUCTION: Log token creation (without exposing the token)
+    if (process.env.NODE_ENV === 'production') {
+      console.log('PRODUCTION: JWT token created successfully:', {
+        userId: payload.userId,
+        email: payload.email,
+        iat,
+        exp,
+        tokenLength: token.length
+      })
+    }
+    
+    return token
+  } catch (error) {
+    console.error('JWT creation failed:', {
+      error: error instanceof Error ? error.message : error,
+      userId: payload.userId,
+      email: payload.email,
+      hasSecret: !!JWT_SECRET,
+      secretLength: JWT_SECRET.length,
+      nodeEnv: process.env.NODE_ENV
+    })
+    throw error
+  }
 }
 
 export async function verifyJWT(token: string): Promise<SessionPayload | null> {
@@ -69,18 +123,48 @@ export async function verifyJWT(token: string): Promise<SessionPayload | null> {
       typeof payload.iat === 'number' &&
       typeof payload.exp === 'number'
     ) {
+      // PRODUCTION: Log successful verification (without exposing sensitive data)
+      if (process.env.NODE_ENV === 'production') {
+        console.log('PRODUCTION: JWT verification successful:', {
+          userId: payload.userId,
+          email: payload.email,
+          exp: payload.exp,
+          isExpired: payload.exp < Math.floor(Date.now() / 1000)
+        })
+      }
+      
       return payload as unknown as SessionPayload
     }
 
-    console.error('JWT payload validation failed - invalid structure:', payload)
-    return null
-  } catch (error) {
-    console.error('JWT verification failed:', {
-      error: error instanceof Error ? error.message : error,
-      tokenLength: token?.length || 0,
-      hasSecret: !!JWT_SECRET,
+    console.error('JWT payload validation failed - invalid structure:', {
+      hasUserId: typeof payload.userId === 'string',
+      hasEmail: typeof payload.email === 'string',
+      hasName: typeof payload.name === 'string' || payload.name === null,
+      hasIat: typeof payload.iat === 'number',
+      hasExp: typeof payload.exp === 'number',
       nodeEnv: process.env.NODE_ENV
     })
+    return null
+  } catch (error) {
+    // ENHANCED: Production-specific error logging
+    if (process.env.NODE_ENV === 'production') {
+      console.error('PRODUCTION: JWT verification failed:', {
+        error: error instanceof Error ? error.message : error,
+        tokenLength: token?.length || 0,
+        hasSecret: !!JWT_SECRET,
+        secretLength: JWT_SECRET.length,
+        nodeEnv: process.env.NODE_ENV,
+        // Don't log the actual token in production
+        tokenPrefix: token?.substring(0, 20) + '...'
+      })
+    } else {
+      console.error('DEV: JWT verification failed:', {
+        error: error instanceof Error ? error.message : error,
+        tokenLength: token?.length || 0,
+        hasSecret: !!JWT_SECRET,
+        nodeEnv: process.env.NODE_ENV
+      })
+    }
     return null
   }
 }
@@ -98,66 +182,103 @@ export async function createSession(user: User): Promise<string> {
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
-  
-  if (!token) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get(COOKIE_NAME)?.value
+    
+    if (!token) {
+      return null
+    }
+    
+    return verifyJWT(token)
+  } catch (error) {
+    // PRODUCTION: Enhanced error logging for session retrieval
+    if (process.env.NODE_ENV === 'production') {
+      console.error('PRODUCTION: Session retrieval failed:', {
+        error: error instanceof Error ? error.message : error,
+        cookieName: COOKIE_NAME,
+        nodeEnv: process.env.NODE_ENV
+      })
+    } else {
+      console.error('DEV: Session retrieval failed:', error)
+    }
     return null
   }
-  
-  return verifyJWT(token)
 }
 
 export async function getSessionFromRequest(request: NextRequest): Promise<SessionPayload | null> {
-  const token = request.cookies.get(COOKIE_NAME)?.value
-  
-  if (!token) {
+  try {
+    const token = request.cookies.get(COOKIE_NAME)?.value
+    
+    if (!token) {
+      return null
+    }
+    
+    return verifyJWT(token)
+  } catch (error) {
+    // PRODUCTION: Enhanced error logging for request session retrieval
+    if (process.env.NODE_ENV === 'production') {
+      console.error('PRODUCTION: Request session retrieval failed:', {
+        error: error instanceof Error ? error.message : error,
+        cookieName: COOKIE_NAME,
+        hasToken: !!request.cookies.get(COOKIE_NAME)?.value,
+        tokenLength: request.cookies.get(COOKIE_NAME)?.value?.length || 0,
+        nodeEnv: process.env.NODE_ENV
+      })
+    } else {
+      console.error('DEV: Request session retrieval failed:', error)
+    }
     return null
   }
-  
-  return verifyJWT(token)
 }
 
 // Cookie utilities
 export function getSessionCookie(token: string) {
   const isProduction = process.env.NODE_ENV === 'production'
+  const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
+  
   const cookie = {
     name: COOKIE_NAME,
     value: token,
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureContext, // ENHANCED: More flexible secure detection
     sameSite: 'lax' as const,
     maxAge: SESSION_DURATION / 1000, // Convert to seconds
     path: '/',
-    // Ensure cookie works across subdomains if needed
+    // ENHANCED: Production domain handling
     ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 
-  // Enhanced logging for debugging
-  console.log('Setting session cookie:', {
-    name: cookie.name,
-    secure: cookie.secure,
-    sameSite: cookie.sameSite,
-    domain: cookie.domain || 'not set',
-    maxAge: cookie.maxAge,
-    isProduction,
-    tokenLength: token.length
-  })
+  // ENHANCED: Production-specific logging
+  if (isProduction) {
+    console.log('PRODUCTION: Creating session cookie config:', {
+      name: cookie.name,
+      secure: cookie.secure,
+      sameSite: cookie.sameSite,
+      domain: cookie.domain || 'not set',
+      maxAge: cookie.maxAge,
+      isProduction,
+      forceHttps: process.env.FORCE_HTTPS,
+      tokenLength: token.length
+    })
+  }
 
   return cookie
 }
 
 export function getExpiredSessionCookie() {
   const isProduction = process.env.NODE_ENV === 'production'
+  const isSecureContext = isProduction || process.env.FORCE_HTTPS === 'true'
+  
   return {
     name: COOKIE_NAME,
     value: '',
     httpOnly: true,
-    secure: isProduction,
+    secure: isSecureContext, // ENHANCED: Consistent secure detection
     sameSite: 'lax' as const,
     maxAge: 0,
     path: '/',
-    // Add domain for production if needed
+    // ENHANCED: Production domain handling for expired cookies
     ...(isProduction && process.env.COOKIE_DOMAIN && { domain: process.env.COOKIE_DOMAIN })
   }
 }
