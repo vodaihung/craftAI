@@ -54,7 +54,7 @@ export function UserMenu() {
     )
   }
 
-  if (!session || status === 'unauthenticated') {
+  if (!user || status === 'unauthenticated') {
     return (
       <div className="flex items-center space-x-2">
         <Link href="/auth/signin">
