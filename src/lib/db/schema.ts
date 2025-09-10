@@ -10,6 +10,7 @@ export const users = pgTable('users', {
   emailVerified: timestamp('emailVerified', { mode: 'date' }),
   image: text('image'),
   password: text('password'), // For manual authentication
+  subscriptionTier: text('subscription_tier').default('free').notNull(), // free, pro
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 

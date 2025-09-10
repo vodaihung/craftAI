@@ -22,7 +22,7 @@ export default function CreateFormPage() {
   const [currentFormSchema, setCurrentFormSchema] = useState<FormSchema | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [formsCount, setFormsCount] = useState(0)
-  const [currentTier] = useState('free') // This would come from user data in a real app
+  const [currentTier, setCurrentTier] = useState('free')
   const [showTemplates, setShowTemplates] = useState(true)
 
   useEffect(() => {
@@ -33,6 +33,7 @@ export default function CreateFormPage() {
 
     if (status === 'authenticated') {
       fetchFormsCount()
+      fetchUserSubscriptionTier()
     }
   }, [status, router])
 
@@ -45,6 +46,20 @@ export default function CreateFormPage() {
       }
     } catch (error) {
       console.error('Failed to fetch forms count:', error)
+    }
+  }
+
+  const fetchUserSubscriptionTier = async () => {
+    try {
+      const response = await fetch('/api/subscription')
+      const result = await response.json()
+      if (result.subscriptionTier) {
+        setCurrentTier(result.subscriptionTier)
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription tier:', error)
+      // Default to free tier on error
+      setCurrentTier('free')
     }
   }
 
@@ -98,9 +113,17 @@ export default function CreateFormPage() {
 
         // Show success message and redirect to dashboard
         showAlert('success', `Form "${result.form.name}" saved successfully! You can now share it or find it in your dashboard.`, {
+          title: 'Form Saved',
           onConfirm: () => router.push('/dashboard')
         })
       } else {
+        // Handle form limit error specifically
+        if (result.error === 'Form limit reached') {
+          showAlert('warning', result.message || 'You\'ve reached your form limit. Please upgrade to create more forms.', {
+            title: 'Form Limit Reached'
+          })
+          return
+        }
         throw new Error(result.error || 'Failed to save form')
       }
     } catch (error) {

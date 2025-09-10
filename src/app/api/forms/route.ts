@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createForm, getAllForms, getFormsByUserId } from '@/lib/db/queries'
+import { createForm, getAllForms, getFormsByUserId, getUserById } from '@/lib/db/queries'
 import { insertFormSchema, FormSchemaSchema } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/session'
 import { logProductionCookieDebug } from '@/lib/production-auth-debug'
@@ -128,6 +128,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('📝 Creating new form for user:', userId)
 
+    // Get user to check subscription tier
+    const user = await getUserById(userId)
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        error: 'User not found'
+      }, { status: 404 })
+    }
+
+    // Check form limits based on subscription tier
+    const existingForms = await getFormsByUserId(userId)
+    const subscriptionTier = user.subscriptionTier || 'free'
+
+    if (subscriptionTier === 'free' && existingForms.length >= 3) {
+      return NextResponse.json({
+        success: false,
+        error: 'Form limit reached',
+        message: 'You\'ve reached the limit of 3 forms on the free plan. Please upgrade to create more forms.'
+      }, { status: 403 })
+    }
+
     // Validate request body
     const validatedData = CreateFormRequestSchema.parse(body)
 
@@ -143,7 +164,7 @@ export async function POST(request: NextRequest) {
     invalidateCache(userId)
 
     console.log('✅ Form created successfully:', newForm.id)
-    
+
     return NextResponse.json({
       success: true,
       form: newForm,

@@ -34,6 +34,10 @@ function setCache<T>(key: string, data: T, ttlMs: number = 60000): void {
   })
 }
 
+function clearCache(key: string): void {
+  cache.delete(key)
+}
+
 // Database operation wrapper with health check
 async function withHealthCheck<T>(operation: () => Promise<T>): Promise<T> {
   const isHealthy = await checkDbHealth()
@@ -91,6 +95,25 @@ export async function getUserById(id: string): Promise<User | null> {
   // Cache user data for 5 minutes
   setCache(cacheKey, result, 300000)
   return result
+}
+
+export async function updateUserSubscriptionTier(userId: string, subscriptionTier: string): Promise<User | null> {
+  try {
+    const [updatedUser] = await db
+      .update(users)
+      .set({ subscriptionTier })
+      .where(eq(users.id, userId))
+      .returning()
+
+    // Clear cache for this user
+    const cacheKey = getCacheKey('getUserById', [userId])
+    clearCache(cacheKey)
+
+    return updatedUser || null
+  } catch (error) {
+    console.error('Error updating user subscription tier:', error)
+    return null
+  }
 }
 
 // Form queries

@@ -87,8 +87,23 @@ export default function DashboardPage() {
       }
 
       loadForms()
+      fetchUserSubscriptionTier()
     }
   }, [status, router]) // Removed session from dependencies to prevent infinite loop
+
+  const fetchUserSubscriptionTier = async () => {
+    try {
+      const response = await fetch('/api/subscription')
+      const result = await response.json()
+      if (result.subscriptionTier) {
+        setCurrentTier(result.subscriptionTier)
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription tier:', error)
+      // Default to free tier on error
+      setCurrentTier('free')
+    }
+  }
 
   const handleDeleteForm = async (formId: string, formName: string) => {
     showAlert('confirm', `Are you sure you want to delete "${formName}"? This action cannot be undone.`, {
@@ -248,6 +263,8 @@ export default function DashboardPage() {
                 onUpgrade={(tierId) => {
                   setCurrentTier(tierId)
                   setShowSubscriptionManager(false)
+                  // Refresh subscription tier from server to ensure consistency
+                  fetchUserSubscriptionTier()
                 }}
                 onClose={() => setShowSubscriptionManager(false)}
               />

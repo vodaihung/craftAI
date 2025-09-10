@@ -94,8 +94,20 @@ export function SubscriptionManager({
 
     setIsProcessing(true)
     try {
-      // Simulate upgrade process
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Call API to update subscription tier
+      const response = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscriptionTier: tierId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update subscription')
+      }
+
+      const result = await response.json()
 
       if (onUpgrade) {
         onUpgrade(tierId)
@@ -103,6 +115,7 @@ export function SubscriptionManager({
 
       showAlert('success', 'Upgrade Successful', `Successfully upgraded to ${SUBSCRIPTION_TIERS.find(t => t.id === tierId)?.name}!`)
     } catch (error) {
+      console.error('Subscription upgrade error:', error)
       showAlert('error', 'Upgrade Failed', 'Upgrade failed. Please try again.')
     } finally {
       setIsProcessing(false)
